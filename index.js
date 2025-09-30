@@ -25,7 +25,7 @@ let SunCalc = require("suncalc")
 
 function graph(req, res) {
     res.setHeader("Content-Type", "image/png")
-    let arg = ["graph", "-", "-a", "PNG", "-w", "1080", "-h", "240"]
+    let arg = ["graph", "-", "-a", "PNG", "-w", "1080", "-h", "240", "--full-size-mode"]
 
     let times = SunCalc.getTimes(new Date(), 41.1660, -85.4831)
 
@@ -91,6 +91,46 @@ function graph(req, res) {
                     now.getDate() - 2), 41.1660, -85.4831).sunset.getTime() / 1000) +
                     "#00a5ff")
                 break
+            case "96h":
+                arg.push("-s")
+                arg.push("now-96hour")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 1), 41.1660, -85.4831).sunrise.getTime() / 1000) +
+                    "#FFA500")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 1), 41.1660, -85.4831).solarNoon.getTime() / 1000) +
+                    "#ff0000")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 1), 41.1660, -85.4831).sunset.getTime() / 1000) +
+                    "#00a5ff")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 2), 41.1660, -85.4831).sunrise.getTime() / 1000) +
+                    "#FFA500")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 2), 41.1660, -85.4831).solarNoon.getTime() / 1000) +
+                    "#ff0000")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 2), 41.1660, -85.4831).sunset.getTime() / 1000) +
+                    "#00a5ff")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 3), 41.1660, -85.4831).sunrise.getTime() / 1000) +
+                    "#FFA500")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 3), 41.1660, -85.4831).solarNoon.getTime() / 1000) +
+                    "#ff0000")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 3), 41.1660, -85.4831).sunset.getTime() / 1000) +
+                    "#00a5ff")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 4), 41.1660, -85.4831).sunrise.getTime() / 1000) +
+                    "#FFA500")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 4), 41.1660, -85.4831).solarNoon.getTime() / 1000) +
+                    "#ff0000")
+                arg.push("VRULE:" + Math.round(SunCalc.getTimes(new Date().setDate(
+                    now.getDate() - 4), 41.1660, -85.4831).sunset.getTime() / 1000) +
+                    "#00a5ff")
+                break
         }
     }
     switch (req.params.id) {
@@ -104,19 +144,19 @@ function graph(req, res) {
             arg.push("DEF:heat=" + __dirname + "/hem-heat.rrd:heat:AVERAGE")
             arg.push("DEF:cool=" + __dirname + "/hem-cool.rrd:cool:AVERAGE")
             arg.push("DEF:rh=" + __dirname + "/hem-rh.rrd:rh:AVERAGE")
-            arg.push("LINE1:rh#00ff00:Relative_Humidity")
+            arg.push("LINE1:rh#ff00ff:Relative_Humidity")
             arg.push("DEF:dew=" + __dirname + "/hem-dew.rrd:dew:AVERAGE")
             arg.push("LINE1:dew#000000:Dew_Point")
             //      arg.push("CDEF:smoothed=dew, 1800, TREND")
             //      arg.push("LINE1:smoothed#AA00AA:Dew_Point_Trend")
             arg.push("DEF:in=" + __dirname + "/hem-in.rrd:in:AVERAGE")
-            arg.push("LINE1:in#7D3C98:Inside")
+            arg.push("LINE1:in#00ff00:Inside")
             arg.push("DEF:out=" + __dirname + "/hem-out.rrd:out:AVERAGE")
             arg.push("LINE1:out#ff0000:Outside")
             arg.push("CDEF:heaton=heat,0,GT,in,UNKN,IF")
-            arg.push("LINE2:heaton#ff0000")
+            arg.push("LINE1:heaton#ff0000")
             arg.push("CDEF:coolon=cool,0,GT,in,UNKN,IF")
-            arg.push("LINE2:coolon#0000ff")
+            arg.push("LINE1:coolon#0000ff")
             break
         case "wh":
             arg.push("DEF:upper=" + __dirname + "/hem-upper.rrd:upper:AVERAGE")
@@ -129,6 +169,8 @@ function graph(req, res) {
             arg.push("LINE1:aclow#0000ff:AC_Low")
             arg.push("DEF:achigh=" + __dirname + "/hem-achigh.rrd:achigh:AVERAGE")
             arg.push("LINE1:achigh#ff0000:AC_High")
+            arg.push("DEF:out=" + __dirname + "/hem-out.rrd:out:AVERAGE")
+            arg.push("LINE1:out#000000:Outside")
             break
         case "gpm":
             arg.push("DEF:gpm=" + __dirname + "/hem-gpm.rrd:gpm:AVERAGE")
@@ -141,7 +183,7 @@ function graph(req, res) {
         console.error(data.toString())
     })
     child.stdout.on("data", function (data) {
-        //console.log(data.toString())
+//        console.log(data.toString())
     })
     child.stdout.pipe(res)
 }
@@ -280,6 +322,9 @@ client.on("connect", function () {
     client.subscribe("#")
 })
 
+let outsideTemp = 69
+let firstRun = true
+
 client.on("message", function (topic, message) {
     switch (topic) {
         case "power/W":
@@ -298,7 +343,16 @@ client.on("message", function (topic, message) {
             child.stdin.write("update " + __dirname + "/hem-rh.rrd N:" + Number(message.toString()) + "\n")
             break
         case "temp/280049724c2001be":
-            child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(message.toString()) + "\n")
+            let newTemp = Number(message.toString())
+            if (firstRun == false) {
+                outsideTemp = outsideTemp * 0.99375 + newTemp * 0.00625
+            } else {
+                outsideTemp = newTemp
+		firstRun = false
+            }
+
+            child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(outsideTemp.toString()) + "\n")
+//            child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(message.toString()) + "\n")
             break
         case "temp/2809853f030000a7":
             child.stdin.write("update " + __dirname + "/hem-upper.rrd N:" + Number(message.toString()) + "\n")
@@ -323,6 +377,7 @@ client.on("message", function (topic, message) {
             } else {
                 child.stdin.write("update " + __dirname + "/hem-cool.rrd N:0\n")
             }
+            currentState = message.toString()
             break
     }
 

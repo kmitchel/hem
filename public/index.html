@@ -55,8 +55,18 @@
     <img id="wh24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
     <br>
     <img id="gpm24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="js/mqtt.min.js"></script>
+    <br>
+    <img id="watt96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="temp96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="ac96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="wh96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="gpm96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
         $(function () {
@@ -75,6 +85,11 @@
                 $("#ac24").attr("src", "/graph/ac?" + temp + "&start=48h")
                 $("#wh24").attr("src", "/graph/wh?" + temp + "&start=48h")
                 $("#gpm24").attr("src", "/graph/gpm?" + temp + "&start=48h")
+                $("#watt96").attr("src", "/graph/watt?" + temp + "&start=96h")
+                $("#temp96").attr("src", "/graph/temp?" + temp + "&start=96h")
+                $("#ac96").attr("src", "/graph/ac?" + temp + "&start=96h")
+                $("#wh96").attr("src", "/graph/wh?" + temp + "&start=96h")
+                $("#gpm96").attr("src", "/graph/gpm?" + temp + "&start=96h")
             }
 
             loadImg(time())
@@ -87,8 +102,11 @@
                 loadImg(time())
             },30000)
 
-            let client = mqtt.connect("ws://kmitchel.ddns.net:9001")
-
+            let client = mqtt.connect("ws://192.168.1.2:9001")
+//let host = window.location.hostname;
+//console.log(window.location.hostname)
+//console.log(host)
+//let client = mqtt.connect("ws://" + host + ":9001");
             client.on("error", function (err) {
                 console.log(err)
                 client.end()
@@ -149,7 +167,16 @@
                         break
 
                     case "power/kWh":
-                        let cost = (message * 0.105 + 19) * 1.07
+			let cost = 25
+			if (Number(message) > 500) {
+				cost += 500 * 0.120331
+				cost += (Number(message) - 500) * 0.101597
+			} else {
+				cost += Number(message) * 0.120331
+			}
+			cost += Number(message) * 0.019743
+			cost += Number(message) * 0.000390
+			cost *= 1.07
                         let month
                         if (new Date().getDate() > 6) {
                             month = new Date().getMonth()
@@ -159,7 +186,16 @@
                         let startOfBillingCycle = new Date(new Date().getFullYear(), month, 7).getTime()
                         let endOfBillingCycle = new Date(new Date().getFullYear(), month + 1, 7).getTime()
                         let projectedkWh = Number(message) / (new Date().getTime() - startOfBillingCycle) * (endOfBillingCycle - startOfBillingCycle)
-                        let projectedCost = (projectedkWh * 0.105 + 19) * 1.07
+                        let projectedCost = 25
+			if (projectedkWh > 500) {
+				projectedCost += 500 * 0.120331
+				projectedCost += (projectedkWh - 500) * 0.101597
+			} else {
+				projectedCost += projectedkWh * 0.120331
+			}
+			projectedCost += projectedkWh * 0.019743
+			projectedCost += projectedkWh * 0.00390
+			projectedCost *= 1.07
                         $("#kWh").html(message.toString() + " kWh @ $" + cost.toFixed(2) + "<br>Projected Monthly Cost:  " + projectedkWh.toFixed(2) + "kWh @ $" + projectedCost.toFixed(2))
                         break
 

@@ -20,6 +20,9 @@ $(function () {
         xAxis: {
             type: 'datetime'
         },
+	yAxis: [{},{}],
+
+
         plotOptions: {
             series: {
                 lineWidth: 1
@@ -111,6 +114,53 @@ if (collection == "histogram"){
 
             data.forEach(function (element) {
                 chart.addSeries(element)
+
+let adata = {data:[]}
+let bdata = {data:[]}
+let cdata = {data:[]}
+let ddata = {data:[]}
+
+let am = element.data[0][1]
+let bm = am
+let cm = am
+
+element.data.forEach(function (e){
+
+  am = am*0.99 + e[1]*0.01
+  bm = bm*0.99 + am * 0.01
+  cm = cm*0.99 + bm * 0.01
+
+  adata.data.push([e[0],am +  5])
+  bdata.data.push([e[0],bm + 10])
+  cdata.data.push([e[0],cm + 15])
+  ddata.data.push([e[0], 3*am - 3*bm + cm])
+
+})
+
+//chart.addSeries(adata)
+//chart.addSeries(bdata)
+//chart.addSeries(cdata)
+chart.addSeries(ddata)
+
+let der = {yAxis: 1, data:[]}
+
+ddata.data.forEach(function (e,i,a){
+
+if (i>0){
+
+	let t = a[i][0] - a[i-1][0]
+	let d = a[i][1] - a[i-1][1]
+	//d = d * 100000000
+		
+
+	der.data.push([a[i][0],d/t])
+
+}
+
+})
+
+chart.addSeries(der)
+
             })
 
             $('.btnGroup').removeClass('hide')

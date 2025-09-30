@@ -7,7 +7,7 @@
     "compression": "^1.7.4",
     "express": "^4.12.4",
     "level": "^7.0.1",
-    "mqtt": "^4.2.8",
+    "mqtt": "^4.3.8",
     "suncalc": "^1.6.0"
   },
   "scripts": {

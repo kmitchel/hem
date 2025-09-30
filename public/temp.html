@@ -86,9 +86,9 @@
   <!-- Bootstrap core JavaScript
     ================================================== -->
   <!-- Placed at the end of the document so the pages load faster -->
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
-  <script src="js/mqtt.min.js"></script>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
   <script>
     $(function () {
@@ -99,12 +99,16 @@
         timer += 1
         if (timer > 100) timer = 100
         $("#temp").css("color", "rgb(" + Math.floor(255 - 0.86 * timer)  + "," + Math.floor(255 - 1.87 * timer) + "," + Math.floor(255 - 1.89 * timer) +")")
-        console.log (timer)
+//        console.log (timer)
       }, 150)
 
       let temp = []
 
-      let client = mqtt.connect("ws://kmitchel.ddns.net:9001")
+      let client = mqtt.connect("ws://192.168.1.2:9001")
+//let host = window.location.host;
+//let client = mqtt.connect("ws://" + host + ":9001");
+
+
 
       client.on("error", function (err) {
         console.log(err)
