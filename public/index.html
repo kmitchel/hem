@@ -2,215 +2,148 @@
 <html lang="en">
 
 <head>
+    <meta charset="UTF-8">
     <title>Home Energy Monitor</title>
+    <style>
+        img { cursor: pointer; display: block; margin-bottom: 10px; }
+    </style>
 </head>
 
 <body>
-    <span id="power"></span>
-    <br>
-    <span id="kWh"></span>
-    <br>
-    <span id="t"></span>
-    <br>
-    <span id="out"></span>
-    <br>
-    <span id="upper"></span>
-    <br>
-    <span id="lower"></span>
-    <br>
-    <span id="achigh"></span>
-    <br>
-    <span id="aclow"></span>
-    <br>
-    <span id="gal"></span>
-    <br>
-    <span id="gpm"></span>
-    <br>
-    <span id="rh"></span>
-    <br>
-    <span id="dew"></span>
-    <br>
-    <span id="state"></span>
-    <br>
-    <span id="cool"></span>
-    <br>
-    <span id="heat"></span>
-    <br>
+    <span id="power"></span><br>
+    <span id="kWh"></span><br>
+    <span id="t"></span><br>
+    <span id="out"></span><br>
+    <span id="upper"></span><br>
+    <span id="lower"></span><br>
+    <span id="achigh"></span><br>
+    <span id="aclow"></span><br>
+    <span id="gal"></span><br>
+    <span id="gpm"></span><br>
+    <span id="rh"></span><br>
+    <span id="dew"></span><br>
+    <span id="state"></span><br>
+    <span id="cool"></span><br>
+    <span id="heat"></span><br>
+
     <img id="watt2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="temp2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="ac2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="wh2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="gpm2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="watt24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="temp24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="ac24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="wh24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="gpm24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="watt96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="temp96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="ac96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="wh96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <br>
     <img id="gpm96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
 
     <script>
-        $(function () {
-            function time() {
-                return Math.floor(Date.now() / 1000 / 30) * 60 * 1000
-            }
+        document.addEventListener('DOMContentLoaded', () => {
+            
+            const time = () => Math.floor(Date.now() / 1000 / 30) * 60 * 1000;
 
-            function loadImg(temp) {
-                $("#watt2").attr("src", "/graph/watt?" + temp + "&start=12h")
-                $("#temp2").attr("src", "/graph/temp?" + temp + "&start=12h")
-                $("#ac2").attr("src", "/graph/ac?" + temp + "&start=12h")
-                $("#wh2").attr("src", "/graph/wh?" + temp + "&start=12h")
-                $("#gpm2").attr("src", "/graph/gpm?" + temp + "&start=12h")
-                $("#watt24").attr("src", "/graph/watt?" + temp + "&start=48h")
-                $("#temp24").attr("src", "/graph/temp?" + temp + "&start=48h")
-                $("#ac24").attr("src", "/graph/ac?" + temp + "&start=48h")
-                $("#wh24").attr("src", "/graph/wh?" + temp + "&start=48h")
-                $("#gpm24").attr("src", "/graph/gpm?" + temp + "&start=48h")
-                $("#watt96").attr("src", "/graph/watt?" + temp + "&start=96h")
-                $("#temp96").attr("src", "/graph/temp?" + temp + "&start=96h")
-                $("#ac96").attr("src", "/graph/ac?" + temp + "&start=96h")
-                $("#wh96").attr("src", "/graph/wh?" + temp + "&start=96h")
-                $("#gpm96").attr("src", "/graph/gpm?" + temp + "&start=96h")
-            }
+            const updateImg = (id, type, temp, start) => {
+                const el = document.getElementById(id);
+                if (el) el.src = `/graph/${type}?${temp}&start=${start}`;
+            };
 
-            loadImg(time())
+            const loadImg = (temp) => {
+                const graphs = ['watt', 'temp', 'ac', 'wh', 'gpm'];
+                const periods = { '2': '12h', '24': '48h', '96': '96h' };
 
-            $("img").click(function () {
-                loadImg(time())
-            })
+                Object.entries(periods).forEach(([suffix, startValue]) => {
+                    graphs.forEach(type => {
+                        updateImg(type + suffix, type, temp, startValue);
+                    });
+                });
+            };
 
-            setInterval(function(){
-                loadImg(time())
-            },30000)
+            // Initial load
+            loadImg(time());
 
-            let client = mqtt.connect("ws://192.168.1.2:9001")
-//let host = window.location.hostname;
-//console.log(window.location.hostname)
-//console.log(host)
-//let client = mqtt.connect("ws://" + host + ":9001");
-            client.on("error", function (err) {
-                console.log(err)
-                client.end()
-            })
+            // Refresh on click for all images
+            document.querySelectorAll('img').forEach(img => {
+                img.addEventListener('click', () => loadImg(time()));
+            });
 
-            client.on("connect", function () {
-                client.subscribe("#")
-            })
+            // Auto-refresh every 30 seconds
+            setInterval(() => loadImg(time()), 30000);
 
-            client.on("message", function (topic, message, packet) {
+            // MQTT Connection
+            const host = window.location.hostname;
+            const client = mqtt.connect(`ws://${host}:9001`);
+
+            client.on("error", (err) => {
+                console.error("MQTT Error:", err);
+                client.end();
+            });
+
+            client.on("connect", () => {
+                console.log("Connected to MQTT broker");
+                client.subscribe("#");
+            });
+
+            client.on("message", (topic, message) => {
+                const msgStr = message.toString();
+                const updateHTML = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.innerHTML = val;
+                };
+
                 switch (topic) {
-                    case "hvac/state":
-                        $("#state").html(message.toString())
-                        break
-
-                    case "power/W":
-                        $("#power").html("Current Power: " + message.toString() + "W")
-                        break
-
-                    case "temp/280049724c2001be":
-                        $("#out").html("Outside Temp:  " + message.toString() + "F")
-                        break
-
-                    case "temp/2809853f030000a7":
-                        $("#upper").html("Upper WH Temp:  " + message.toString() + "F")
-                        break
-
-                    case "temp/2813513f03000072":
-                        $("#lower").html("Lower WH Temp:  " + message.toString() + "F")
-                        break
-
-                    case "temp/289fa756b5013c68":
-                        $("#achigh").html("High AC Temp:  " + message.toString() + "F")
-                        break
-
-                    case "temp/2874913c46200105":
-                        $("#aclow").html("Low AC Temp:  " + message.toString() + "F")
-                        break
-
-                    case "water/Gal":
-                        $("#gal").html("Gallons:  " + message.toString())
-                        break
-
-                    case "water/GPM":
-                        $("#gpm").html(message.toString() + " GPM")
-                        break
-
-                    case "temp/tempF":
-                        $("#t").html("Inside Temp: " + message.toString() + "F")
-                        break
-
-                    case "temp/rh":
-                        $("#rh").html("RH: " + message.toString() + "%")
-                        break
-
-                    case "temp/dewF":
-                        $("#dew").html("DEW: " + message.toString() + "F")
-                        break
+                    case "hvac/state": updateHTML("state", msgStr); break;
+                    case "power/W": updateHTML("power", `Current Power: ${msgStr}W`); break;
+                    case "temp/280049724c2001be": updateHTML("out", `Outside Temp: ${msgStr}F`); break;
+                    case "temp/2809853f030000a7": updateHTML("upper", `Upper WH Temp: ${msgStr}F`); break;
+                    case "temp/2813513f03000072": updateHTML("lower", `Lower WH Temp: ${msgStr}F`); break;
+                    case "temp/289fa756b5013c68": updateHTML("achigh", `High AC Temp: ${msgStr}F`); break;
+                    case "temp/2874913c46200105": updateHTML("aclow", `Low AC Temp: ${msgStr}F`); break;
+                    case "water/Gal": updateHTML("gal", `Gallons: ${msgStr}`); break;
+                    case "water/GPM": updateHTML("gpm", `${msgStr} GPM`); break;
+                    case "temp/tempF": updateHTML("t", `Inside Temp: ${msgStr}F`); break;
+                    case "temp/rh": updateHTML("rh", `RH: ${msgStr}%`); break;
+                    case "temp/dewF": updateHTML("dew", `DEW: ${msgStr}F`); break;
+                    case "hvac/coolTime": updateHTML("cool", `Cool Runtime: ${msgStr} Min`); break;
+                    case "hvac/heatTime": updateHTML("heat", `Heat Runtime: ${msgStr} Min`); break;
 
                     case "power/kWh":
-			let cost = 25
-			if (Number(message) > 500) {
-				cost += 500 * 0.120331
-				cost += (Number(message) - 500) * 0.101597
-			} else {
-				cost += Number(message) * 0.120331
-			}
-			cost += Number(message) * 0.019743
-			cost += Number(message) * 0.000390
-			cost *= 1.07
-                        let month
-                        if (new Date().getDate() > 6) {
-                            month = new Date().getMonth()
+                        const kwh = Number(msgStr);
+                        let cost = 25;
+                        if (kwh > 500) {
+                            cost += (500 * 0.120331) + ((kwh - 500) * 0.101597);
                         } else {
-                            month = new Date().getMonth() - 1
+                            cost += kwh * 0.120331;
                         }
-                        let startOfBillingCycle = new Date(new Date().getFullYear(), month, 7).getTime()
-                        let endOfBillingCycle = new Date(new Date().getFullYear(), month + 1, 7).getTime()
-                        let projectedkWh = Number(message) / (new Date().getTime() - startOfBillingCycle) * (endOfBillingCycle - startOfBillingCycle)
-                        let projectedCost = 25
-			if (projectedkWh > 500) {
-				projectedCost += 500 * 0.120331
-				projectedCost += (projectedkWh - 500) * 0.101597
-			} else {
-				projectedCost += projectedkWh * 0.120331
-			}
-			projectedCost += projectedkWh * 0.019743
-			projectedCost += projectedkWh * 0.00390
-			projectedCost *= 1.07
-                        $("#kWh").html(message.toString() + " kWh @ $" + cost.toFixed(2) + "<br>Projected Monthly Cost:  " + projectedkWh.toFixed(2) + "kWh @ $" + projectedCost.toFixed(2))
-                        break
+                        cost += (kwh * 0.019743) + (kwh * 0.000390);
+                        cost *= 1.07;
 
-                    case "hvac/coolTime":
-                        $("#cool").html("Cool Runtime: " + message.toString() + " Min")
-                        break
+                        const now = new Date();
+                        const month = now.getDate() > 6 ? now.getMonth() : now.getMonth() - 1;
+                        const startOfCycle = new Date(now.getFullYear(), month, 7).getTime();
+                        const endOfCycle = new Date(now.getFullYear(), month + 1, 7).getTime();
+                        
+                        const projectedkWh = kwh / (now.getTime() - startOfCycle) * (endOfCycle - startOfCycle);
+                        let projectedCost = 25;
+                        if (projectedkWh > 500) {
+                            projectedCost += (500 * 0.120331) + ((projectedkWh - 500) * 0.101597);
+                        } else {
+                            projectedCost += projectedkWh * 0.120331;
+                        }
+                        projectedCost += (projectedkWh * 0.019743) + (projectedkWh * 0.00390);
+                        projectedCost *= 1.07;
 
-                    case "hvac/heatTime":
-                        $("#heat").html("Heat Runtime: " + message.toString() + " Min")
-                        break
-
+                        updateHTML("kWh", `${msgStr} kWh @ $${cost.toFixed(2)}<br>Projected Monthly Cost: ${projectedkWh.toFixed(2)}kWh @ $${projectedCost.toFixed(2)}`);
+                        break;
                 }
-            })
-        })
+            });
+        });
     </script>
 </body>
-
 </html>
