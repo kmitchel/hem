@@ -1,56 +1,1962 @@
-<!doctype html>
-
+<!DOCTYPE html>
 <html lang="en">
 
 <head>
-    <meta charset="utf-8">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home Energy Management</title>
-    <meta name="description" content="">
-    <meta name="author" content="kmitchel46725">
-    <link rel="stylesheet" href="css/chart.css">
+    <meta name="description"
+        content="Real-time home energy monitoring dashboard for electricity, water, and climate sensors.">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+        :root {
+            --bg-body: #141418;
+            --bg-nav: #18181c;
+            --bg-sidebar: #18181c;
+            --bg-content: #141418;
+            --border-color: #2a2a30;
+            --text-primary: #f5f5f5;
+            --text-secondary: #a3a3a3;
+            --text-muted: #525252;
+            --accent: #f97316;
+            --accent-hover: #ea580c;
+            --accent-glow: rgba(249, 115, 22, 0.4);
+            --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
+
+            /* Semantic colors */
+            --color-elec: #f97316;
+            --color-water: #06b6d4;
+            --color-climate: #22c55e;
+            --color-wh: #eab308;
+            --color-hvac: #a855f7;
+            --color-success: #22c55e;
+            --color-warning: #eab308;
+            --color-error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background: radial-gradient(ellipse at 30% 0%, #2a2a32 0%, #1a1a1f 40%, #141418 100%);
+            color: var(--text-primary);
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+        }
+
+        /* ============================================= */
+        /* Column 1: Action Bar                          */
+        /* ============================================= */
+        #action-bar {
+            width: 62px;
+            background: linear-gradient(180deg, #1e1e24 0%, #161619 100%);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 16px 0;
+            gap: 8px;
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        /* Brand Demoted to Button */
+        /* .ab-brand styles removed */
+
+        .ab-divider {
+            width: 28px;
+            height: 1px;
+            background: var(--border-color);
+            margin: 4px 0;
+        }
+
+        .ab-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            border: none;
+            background: transparent;
+            color: var(--text-muted);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s ease;
+            position: relative;
+        }
+
+        .ab-btn:hover {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-secondary);
+        }
+
+        .ab-btn.active {
+            background: rgba(249, 115, 22, 0.12);
+            color: var(--accent);
+        }
+
+        .ab-btn.active-hvac {
+            background: rgba(168, 85, 247, 0.15);
+            color: var(--color-hvac);
+        }
+
+        .ab-btn svg {
+            width: 20px;
+            height: 20px;
+        }
+
+        .ab-btn[data-tooltip]:hover::after {
+            content: attr(data-tooltip);
+            position: absolute;
+            left: calc(100% + 8px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #1e1e24;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 11px;
+            white-space: nowrap;
+            z-index: 100;
+            pointer-events: none;
+        }
+
+        .ab-spacer {
+            flex: 1;
+        }
+
+        /* ============================================= */
+        /* Column 2: Topic Sidebar                       */
+        /* ============================================= */
+        #sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #1e1e24 0%, #171719 100%);
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        .sb-header {
+            padding: 16px 16px 12px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .sb-header h1 {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+        }
+
+        .sb-scroll {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .sb-group {
+            margin-bottom: 4px;
+        }
+
+        .sb-group-label {
+            padding: 8px 16px 4px;
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: var(--text-muted);
+            font-weight: 700;
+        }
+
+        .sb-topic {
+            display: flex;
+            align-items: center;
+            padding: 7px 16px;
+            gap: 10px;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 13px;
+            transition: all 0.12s ease;
+            border-left: 3px solid transparent;
+        }
+
+        .sb-topic:hover {
+            background: rgba(255, 255, 255, 0.04);
+            color: var(--text-primary);
+        }
+
+        .sb-topic.active {
+            background: rgba(249, 115, 22, 0.08);
+            color: var(--accent);
+            border-left-color: var(--accent);
+        }
+
+        .sb-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .sb-topic-label {
+            flex: 1;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .sb-topic-unit {
+            font-size: 10px;
+            color: var(--text-muted);
+            font-family: var(--font-mono);
+            font-weight: 500;
+        }
+
+        /* ============================================= */
+        /* Column 3: Chart Area                          */
+        /* ============================================= */
+        #main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            background: var(--bg-content);
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            align-items: center;
+            padding: 10px 20px;
+            border-bottom: 1px solid var(--border-color);
+            background: linear-gradient(90deg, #1a1a1f 0%, #1e1e24 100%);
+            gap: 6px;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+        }
+
+        .tb-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.6px;
+            color: var(--text-muted);
+            font-weight: 700;
+            margin-right: 2px;
+        }
+
+        .tb-sep {
+            width: 1px;
+            height: 22px;
+            background: var(--border-color);
+            margin: 0 6px;
+        }
+
+        .chip {
+            padding: 4px 10px;
+            border-radius: 5px;
+            border: 1px solid var(--border-color);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-family: var(--font-sans);
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.12s ease;
+            white-space: nowrap;
+            line-height: 1.4;
+        }
+
+        .chip:hover {
+            border-color: var(--accent);
+            color: var(--text-primary);
+        }
+
+        .chip.active {
+            border-color: var(--accent);
+            background: rgba(249, 115, 22, 0.15);
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        .tb-title {
+            margin-left: auto;
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tb-title-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        /* Chart canvas wrapper */
+        .chart-wrap {
+            flex: 1;
+            padding: 16px 20px;
+            position: relative;
+            min-height: 0;
+        }
+
+        .chart-wrap canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* Empty state */
+        .empty-state {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            gap: 12px;
+            opacity: 0.5;
+        }
+
+        .empty-state svg {
+            width: 56px;
+            height: 56px;
+            stroke-width: 1;
+        }
+
+        .empty-state p {
+            font-size: 13px;
+        }
+
+        /* Overview grid */
+        .overview-grid {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            grid-template-rows: repeat(2, 1fr);
+            gap: 12px;
+            padding: 14px;
+            overflow: hidden;
+            min-width: 0;
+        }
+
+        .overview-card {
+            background: linear-gradient(135deg, #1e1e24 0%, #18181c 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 14px 16px 8px;
+            cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        .overview-card:hover {
+            border-color: var(--accent);
+            box-shadow: 0 0 12px rgba(249, 115, 22, 0.1);
+        }
+
+        .overview-card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 6px;
+            flex-shrink: 0;
+        }
+
+        .overview-card-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .overview-card-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .overview-card-value {
+            font-family: var(--font-mono);
+            font-size: 20px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .overview-card-unit {
+            font-size: 11px;
+            font-weight: 400;
+            color: var(--text-muted);
+            margin-left: 4px;
+        }
+
+        .overview-card-chart {
+            flex: 1;
+            min-height: 40px;
+            margin-top: 4px;
+        }
+
+        /* HVAC Control Panel */
+        .hvac-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 18px;
+            gap: 14px;
+            overflow-y: auto;
+        }
+
+        .hvac-section {
+            background: linear-gradient(135deg, #1e1e24 0%, #18181c 100%);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 18px 20px;
+        }
+
+        .hvac-section-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 14px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .hvac-section-title .dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--color-hvac);
+        }
+
+        .hvac-status-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        .hvac-stat {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .hvac-stat-label {
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .hvac-stat-value {
+            font-family: var(--font-mono);
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .hvac-stat-value.connected {
+            color: var(--color-success);
+        }
+
+        .hvac-stat-value.disconnected {
+            color: var(--color-error);
+        }
+
+        .hvac-stat-value.heating {
+            color: #f97316;
+        }
+
+        .hvac-stat-value.cooling {
+            color: #06b6d4;
+        }
+
+        .hvac-status-section {
+            flex-shrink: 0;
+        }
+
+        .hvac-view-section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .hvac-setpoint-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .hvac-setpoint-row:last-child {
+            border-bottom: none;
+        }
+
+        .hvac-setpoint-label {
+            font-size: 13px;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .hvac-setpoint-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .hvac-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: #1a1a1f;
+            color: var(--text-primary);
+            font-size: 16px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s, border-color 0.15s;
+        }
+
+        .hvac-btn:hover {
+            background: #2a2a32;
+            border-color: var(--color-hvac);
+        }
+
+        .hvac-setpoint-value {
+            font-family: var(--font-mono);
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text-primary);
+            min-width: 48px;
+            text-align: center;
+        }
+
+        .hvac-setpoint-unit {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-left: 2px;
+        }
+
+        .hvac-mode-btns {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        .hvac-mode-btn {
+            flex: 1;
+            padding: 8px 0;
+            border-radius: 6px;
+            border: 1px solid var(--border-color);
+            background: #1a1a1f;
+            color: var(--text-secondary);
+            font-family: var(--font-sans);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .hvac-mode-btn:hover {
+            border-color: var(--color-hvac);
+        }
+
+        .hvac-mode-btn.active-heat {
+            background: rgba(249, 115, 22, 0.15);
+            border-color: #f97316;
+            color: #f97316;
+        }
+
+        .hvac-mode-btn.active-cool {
+            background: rgba(6, 182, 212, 0.15);
+            border-color: #06b6d4;
+            color: #06b6d4;
+        }
+
+        .hvac-mode-btn.active-off {
+            background: rgba(82, 82, 82, 0.15);
+            border-color: #525252;
+            color: #a3a3a3;
+        }
+
+        .hvac-schedule-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .hvac-schedule-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .hvac-schedule-label {
+            font-size: 11px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            width: 50px;
+            flex-shrink: 0;
+        }
+
+        .hvac-input {
+            background: #1a1a1f;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            color: var(--text-primary);
+            font-family: var(--font-mono);
+            font-size: 13px;
+            padding: 6px 10px;
+            width: 70px;
+            text-align: center;
+            transition: border-color 0.15s;
+        }
+
+        .hvac-input:focus {
+            outline: none;
+            border-color: var(--color-hvac);
+        }
+
+        select.hvac-input {
+            width: 90px;
+            cursor: pointer;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .hvac-save-btn {
+            margin-top: 12px;
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid var(--color-hvac);
+            background: rgba(168, 85, 247, 0.12);
+            color: var(--color-hvac);
+            font-family: var(--font-sans);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .hvac-save-btn:hover {
+            background: rgba(168, 85, 247, 0.25);
+        }
+
+        .hvac-param-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .hvac-param-row:last-child {
+            border-bottom: none;
+        }
+
+        .hvac-param-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        .hvac-param-desc {
+            font-size: 10px;
+            color: var(--text-muted);
+            margin-top: 2px;
+        }
+
+        /* Status bar */
+        .status-bar {
+            display: flex;
+            align-items: center;
+            padding: 6px 20px;
+            border-top: 1px solid var(--border-color);
+            background: linear-gradient(90deg, #1a1a1f 0%, #1e1e24 100%);
+            gap: 10px;
+            flex-shrink: 0;
+            font-size: 11px;
+            font-family: var(--font-mono);
+            color: var(--text-muted);
+        }
+
+        .st-dot {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: var(--color-success);
+            flex-shrink: 0;
+        }
+
+        .st-dot.loading {
+            background: var(--color-warning);
+            animation: blink 1s ease-in-out infinite;
+        }
+
+        .st-dot.error {
+            background: var(--color-error);
+        }
+
+        @keyframes blink {
+
+            0%,
+            100% {
+                opacity: 1;
+            }
+
+            50% {
+                opacity: 0.25;
+            }
+        }
+
+        .st-spacer {
+            flex: 1;
+        }
+
+        .st-meta {
+            color: var(--text-muted);
+        }
+
+        /* Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #404040;
+        }
+    </style>
 </head>
 
 <body>
-    <div id="container"></div>
-    <div class='btnGroup type hide'>
-      <button data-type='power-kWh' data-title='Electricity Consumption' data-unit='kWh'>kWh</button>
-      <button data-type='power-W' class='selected' data-title='Electricity Consumption Rate' data-unit='W'>W</button>
-      <button data-type='water-Gal' data-title='Water Consumption' data-unit='Gal'>Gal</button>
-      <button data-type='water-GPM' data-title='Water Consumption Rate' data-unit='GPM'>GPM</button>
-      <button data-type='temp-room1-tempF' data-title='Room 1 Temperature' data-unit='F'>Room 1 Temp</button>
-      <button data-type='temp-room1-dewF' data-title='Room 1 Dew Point' data-unit='F'>Room 1 Dew</button>
-      <button data-type='temp-room1-rh' data-title='Room 1 Relative Humidity' data-unit='%'>Room 1 RH</button>
-      <button data-type='temp-280049724c2001be' data-title='Outside Temperature' data-unit='F'>Outside Temp</button>
-      <button data-type='temp-2809853f030000a7' data-title='Upper Water Heater Temperature' data-unit='F'>WH Upper Temp</button>
-      <button data-type='temp-2813513f03000072' data-title='Lower Water Heater Temperature' data-unit='F'>WH Lower Temp</button>
-      <button data-type='temp-289fa756b5013c68' data-title='High AC Temperature' data-unit='F'>AC High Temp</button>
-      <button data-type='temp-2874913c46200105' data-title='Low AC Temperature' data-unit='F'>AC Low Temp</button>
-      <button data-type="histogram">Histogram</button>
-    </div>
-    <div class='btnGroup time hide'>
-      <button data-time='00' class='selected'>0</button>
-      <button data-time='01' data-sub='At 1 minute intervals'>1</button>
-      <button data-time='05' data-sub='At 5 minute intervals'>5</button>
-      <button data-time='15' data-sub='At 15 minute intervals'>15</button>
-      <button data-time='60' data-sub='At 1 hour intervals'>60</button>
-      <button data-time='24' data-sub='At 24 hour intervals'>24</button>
-      <button data-time='28' data-sub='At 1 Month intervals'>28</button>
-    </div>
-    <div class='btnGroup past hide'>
-      <button data-past='01' class='selected'>1H</button>
-      <button data-past='06'>6H</button>
-      <button data-past='12'>12H</button>
-      <button data-past='24'>1D</button>
-      <button data-past='48'>2D</button>
-      <button data-past='168'>7D</button>
-      <button data-past='0'>All</button>
-    </div>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="http://code.highcharts.com/highcharts.js"></script>
-    <script src="http://code.highcharts.com/highcharts-more.js"></script>
-    <script src="https://code.highcharts.com/modules/histogram-bellcurve.js"></script>
-    <script src="js/mqtt.min.js"></script>
-    <script src="js/chart.js"></script>
+
+    <!-- =========================================== -->
+    <!-- Column 1: Action Bar                        -->
+    <!-- =========================================== -->
+    <nav id="action-bar">
+        <button class="ab-btn" id="btn-overview" data-tooltip="Overview">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+        </button>
+        <div class="ab-divider"></div>
+
+        <button class="ab-btn" id="btn-hvac" data-tooltip="HVAC Control">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z"></path>
+                <path
+                    d="M12 3v3m0 12v3m-7.8-4.2l2.1-2.2m11.4-5.2l2.1-2.1M3 12h3m12 0h3m-4.2 7.8l-2.2-2.1m-5.2-11.4L7.5 4.2">
+                </path>
+            </svg>
+        </button>
+
+        <div class="ab-spacer"></div>
+
+        <button class="ab-btn" id="btn-refresh" data-tooltip="Refresh">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+            </svg>
+        </button>
+    </nav>
+
+    <!-- =========================================== -->
+    <!-- Column 2: Topic Sidebar                     -->
+    <!-- =========================================== -->
+    <aside id="sidebar">
+        <div class="sb-header">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            <h1>HEM Sensors</h1>
+        </div>
+        <div class="sb-scroll" id="topic-list">
+            <!-- Rendered by JS -->
+        </div>
+    </aside>
+
+    <!-- =========================================== -->
+    <!-- Column 3: Chart                             -->
+    <!-- =========================================== -->
+    <main id="main">
+        <!-- Toolbar (hidden until topic selected) -->
+        <div class="toolbar" id="toolbar" style="display:none;">
+            <span class="tb-label">Range</span>
+            <button class="chip" data-past="01">1H</button>
+            <button class="chip" data-past="06">6H</button>
+            <button class="chip active" data-past="12">12H</button>
+            <button class="chip" data-past="24">1D</button>
+            <button class="chip" data-past="48">2D</button>
+            <button class="chip" data-past="168">7D</button>
+            <button class="chip" data-past="0">All</button>
+
+            <div class="tb-sep"></div>
+            <span class="tb-label">Interval</span>
+            <button class="chip active" data-interval="00">Raw</button>
+            <button class="chip" data-interval="01">1m</button>
+            <button class="chip" data-interval="05">5m</button>
+            <button class="chip" data-interval="15">15m</button>
+            <button class="chip" data-interval="60">1h</button>
+            <button class="chip" data-interval="24">1d</button>
+            <button class="chip" id="btn-reset-zoom"
+                style="display:none; border-color:var(--color-warning); color:var(--color-warning);"
+                onclick="resetZoom()">Reset Zoom</button>
+            <div class="tb-title" id="tb-title"></div>
+        </div>
+
+        <!-- Empty state -->
+        <div class="empty-state" id="empty-state" style="display:none;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+            </svg>
+            <p>Select a sensor from the sidebar</p>
+        </div>
+
+        <!-- Overview grid -->
+        <div class="overview-grid" id="overview-grid"></div>
+
+        <!-- HVAC Control Panel -->
+        <div class="hvac-panel" id="hvac-panel" style="display:none;">
+            <!-- Status bar - always visible -->
+            <div class="hvac-section hvac-status-section" id="hvac-sec-status">
+                <div class="hvac-section-title"><span class="dot"></span>Status</div>
+                <div class="hvac-status-grid">
+                    <div class="hvac-stat">
+                        <span class="hvac-stat-label">Connection</span>
+                        <span class="hvac-stat-value disconnected" id="hvac-conn">Offline</span>
+                    </div>
+                    <div class="hvac-stat">
+                        <span class="hvac-stat-label">State</span>
+                        <span class="hvac-stat-value" id="hvac-state">—</span>
+                    </div>
+                    <div class="hvac-stat">
+                        <span class="hvac-stat-label">Temperature</span>
+                        <span class="hvac-stat-value" id="hvac-temp">—</span>
+                    </div>
+                    <div class="hvac-stat">
+                        <span class="hvac-stat-label">Heartbeat</span>
+                        <span class="hvac-stat-value" id="hvac-hb">—</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Temperature Control -->
+            <div class="hvac-section hvac-view-section" id="hvac-sec-temperature" style="display:none;">
+                <div class="hvac-section-title"><span class="dot"></span>Temperature</div>
+                <div class="hvac-setpoint-row">
+                    <span class="hvac-setpoint-label">Heat Setpoint</span>
+                    <div class="hvac-setpoint-controls">
+                        <button class="hvac-btn" onclick="adjustSetpoint('heat', -1)">−</button>
+                        <span class="hvac-setpoint-value" id="hvac-heat-val">—</span>
+                        <span class="hvac-setpoint-unit">°F</span>
+                        <button class="hvac-btn" onclick="adjustSetpoint('heat', 1)">+</button>
+                    </div>
+                </div>
+                <div class="hvac-setpoint-row">
+                    <span class="hvac-setpoint-label">Cool Setpoint</span>
+                    <div class="hvac-setpoint-controls">
+                        <button class="hvac-btn" onclick="adjustSetpoint('cool', -1)">−</button>
+                        <span class="hvac-setpoint-value" id="hvac-cool-val">—</span>
+                        <span class="hvac-setpoint-unit">°F</span>
+                        <button class="hvac-btn" onclick="adjustSetpoint('cool', 1)">+</button>
+                    </div>
+                </div>
+                <div class="hvac-mode-btns">
+                    <button class="hvac-mode-btn" id="hvac-mode-heat" onclick="setHvacMode('heat')">Heat</button>
+                    <button class="hvac-mode-btn" id="hvac-mode-cool" onclick="setHvacMode('cool')">Cool</button>
+                    <button class="hvac-mode-btn" id="hvac-mode-off" onclick="setHvacMode('off')">Off</button>
+                </div>
+            </div>
+
+            <!-- Schedule -->
+            <div class="hvac-section hvac-view-section" id="hvac-sec-schedule" style="display:none;">
+                <div class="hvac-section-title"><span class="dot"></span>Schedule</div>
+                <div class="hvac-schedule-row">
+                    <span class="hvac-schedule-label">Slot 1</span>
+                    <select class="hvac-input" id="sched-h-0"></select>
+                    <input class="hvac-input" type="number" id="sched-t-0" min="50" max="85" value="60">
+                    <span class="hvac-setpoint-unit">°F</span>
+                </div>
+                <div class="hvac-schedule-row">
+                    <span class="hvac-schedule-label">Slot 2</span>
+                    <select class="hvac-input" id="sched-h-1"></select>
+                    <input class="hvac-input" type="number" id="sched-t-1" min="50" max="85" value="58">
+                    <span class="hvac-setpoint-unit">°F</span>
+                </div>
+                <div class="hvac-schedule-row">
+                    <span class="hvac-schedule-label">Slot 3</span>
+                    <select class="hvac-input" id="sched-h-2"></select>
+                    <input class="hvac-input" type="number" id="sched-t-2" min="50" max="85" value="63">
+                    <span class="hvac-setpoint-unit">°F</span>
+                </div>
+                <button class="hvac-save-btn" onclick="saveSchedule()">Save Schedule</button>
+            </div>
+
+            <!-- Tuning Parameters -->
+            <div class="hvac-section hvac-view-section" id="hvac-sec-tuning" style="display:none;">
+                <div class="hvac-section-title"><span class="dot"></span>Tuning</div>
+                <div class="hvac-param-row">
+                    <div>
+                        <div class="hvac-param-label">Heat On Offset</div>
+                        <div class="hvac-param-desc">Degrees below setpoint to start heating</div>
+                    </div>
+                    <div class="hvac-setpoint-controls">
+                        <button class="hvac-btn" onclick="adjustParam('heatOnOffset', -0.05)">−</button>
+                        <span class="hvac-setpoint-value" id="hvac-hon-val">—</span>
+                        <button class="hvac-btn" onclick="adjustParam('heatOnOffset', 0.05)">+</button>
+                    </div>
+                </div>
+                <div class="hvac-param-row">
+                    <div>
+                        <div class="hvac-param-label">Heat Off Offset</div>
+                        <div class="hvac-param-desc">Degrees above setpoint to stop heating</div>
+                    </div>
+                    <div class="hvac-setpoint-controls">
+                        <button class="hvac-btn" onclick="adjustParam('heatOffOffset', -0.05)">−</button>
+                        <span class="hvac-setpoint-value" id="hvac-hoff-val">—</span>
+                        <button class="hvac-btn" onclick="adjustParam('heatOffOffset', 0.05)">+</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart canvas -->
+        <div class="chart-wrap" id="chart-wrap" style="display:none;">
+            <canvas id="chart-canvas"></canvas>
+        </div>
+
+        <!-- Status bar -->
+        <div class="status-bar" id="status-bar" style="display:none;">
+            <span class="st-dot" id="st-dot"></span>
+            <span id="st-text">Ready</span>
+            <span class="st-spacer"></span>
+            <span class="st-meta" id="st-points"></span>
+            <span class="st-meta" id="st-range"></span>
+        </div>
+    </main>
+
+    <script>
+        // =============================================
+        // CONFIG
+        // =============================================
+        const API_BASE = 'http://falcon';
+
+        // =============================================
+        // STATE
+        // =============================================
+        let activeTopic = null;
+        let activePast = '12';
+        let activeInterval = '00';
+        let chart = null;
+        let overviewCharts = [];
+
+        // =============================================
+        // TOPIC DEFINITIONS
+        // =============================================
+        const topics = [
+            {
+                group: 'Electricity', color: 'var(--color-elec)', items: [
+                    { id: 'power-W', label: 'Power', unit: 'W', title: 'Electricity Consumption Rate', chartType: 'line' },
+                    { id: 'power-kWh', label: 'Energy', unit: 'kWh', title: 'Electricity Consumption', chartType: 'bar', noRaw: true },
+                ]
+            },
+            {
+                group: 'Water', color: 'var(--color-water)', items: [
+                    { id: 'water-Gal', label: 'Volume', unit: 'Gal', title: 'Water Consumption', chartType: 'bar', noRaw: true },
+                    { id: 'water-GPM', label: 'Flow Rate', unit: 'GPM', title: 'Water Consumption Rate', chartType: 'line' },
+                ]
+            },
+            {
+                group: 'Climate', color: 'var(--color-climate)', items: [
+                    {
+                        id: 'climate-temps', label: 'Temperatures', unit: '°F', title: 'Climate Temperatures',
+                        collections: [
+                            { id: 'temp-room1-tempF', name: 'Room 1' },
+                            { id: 'temp-room1-dewF', name: 'Room 1 Dew Point' },
+                            { id: 'temp-284a046d4c2001a3', name: 'Outside' },
+                        ]
+                    },
+                    { id: 'temp-room1-rh', label: 'Humidity', unit: '%', title: 'Room 1 Relative Humidity' },
+                ]
+            },
+            {
+                group: 'Water Heater', color: 'var(--color-wh)', items: [
+                    {
+                        id: 'wh-temps', label: 'Tank Temps', unit: '°F', title: 'Water Heater Temperatures',
+                        collections: [
+                            { id: 'temp-2809853f030000a7', name: 'Upper' },
+                            { id: 'temp-2813513f03000072', name: 'Lower' },
+                        ]
+                    },
+                ]
+            },
+            {
+                group: 'HVAC', color: 'var(--color-hvac)', items: [
+                    {
+                        id: 'hvac-temps', label: 'AC Temps', unit: '°F', title: 'AC Temperatures',
+                        collections: [
+                            { id: 'temp-289fa756b5013c68', name: 'High Side' },
+                            { id: 'temp-2874913c46200105', name: 'Low Side' },
+                        ]
+                    },
+                ]
+            },
+        ];
+
+
+        // =============================================
+        // HELPERS
+        // =============================================
+        function getMeta(topicId) {
+            for (const g of topics) {
+                for (const t of g.items) {
+                    if (t.id === topicId) return { ...t, color: g.color };
+                }
+            }
+            return null;
+        }
+
+        function buildUrl(collection, interval, past) {
+            return interval === '00'
+                ? `${API_BASE}/data/${collection}/${past}`
+                : `${API_BASE}/data/${collection}/${interval}/${past}`;
+        }
+
+        // =============================================
+        // SIDEBAR RENDER
+        // =============================================
+        function renderTopics() {
+            const el = document.getElementById('topic-list');
+            let html = '';
+            topics.forEach(g => {
+                html += `<div class="sb-group">`;
+                html += `<div class="sb-group-label">${g.group}</div>`;
+                g.items.forEach(t => {
+                    html += `<div class="sb-topic" data-id="${t.id}" onclick="selectTopic('${t.id}')">`;
+                    html += `<span class="sb-dot" style="background:${g.color}"></span>`;
+                    html += `<span class="sb-topic-label">${t.label}</span>`;
+                    html += `<span class="sb-topic-unit">${t.unit}</span>`;
+                    html += `</div>`;
+                });
+                html += `</div>`;
+            });
+            el.innerHTML = html;
+        }
+
+        // =============================================
+        // TOPIC SELECTION
+        // =============================================
+        function selectTopic(id) {
+            activeTopic = id;
+
+            // Deactivate HVAC, Activate Overview (as parent)
+            document.getElementById('btn-hvac').classList.remove('active-hvac');
+            document.getElementById('btn-overview').classList.add('active');
+
+            // Restore sensor sidebar if showing HVAC nav
+            // Restore sensor sidebar if showing HVAC nav
+            if (document.getElementById('topic-list').dataset.mode === 'hvac') {
+                renderTopics();
+                document.getElementById('topic-list').dataset.mode = 'sensors';
+            }
+
+            // Sidebar active state
+            document.querySelectorAll('.sb-topic').forEach(el => {
+                el.classList.toggle('active', el.dataset.id === id);
+            });
+
+            // Hide overview + HVAC, show chart UI
+            document.getElementById('overview-grid').style.display = 'none';
+            document.getElementById('hvac-panel').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('toolbar').style.display = '';
+            document.getElementById('chart-wrap').style.display = '';
+            document.getElementById('status-bar').style.display = '';
+
+            // Update toolbar title
+            const meta = getMeta(id);
+            if (meta) {
+                document.getElementById('tb-title').innerHTML =
+                    `<span class="tb-title-dot" style="background:${meta.color}"></span>${meta.title}`;
+            }
+
+            // Handle noRaw: disable/enable the Raw chip
+            const rawChip = document.querySelector('.chip[data-interval="00"]');
+            if (rawChip) {
+                if (meta && meta.noRaw) {
+                    rawChip.disabled = true;
+                    rawChip.style.opacity = '0.3';
+                    rawChip.style.pointerEvents = 'none';
+                    // If Raw is currently active, switch to 1m
+                    if (activeInterval === '00') {
+                        activeInterval = '01';
+                        document.querySelectorAll('.chip[data-interval]').forEach(c => c.classList.remove('active'));
+                        document.querySelector('.chip[data-interval="01"]').classList.add('active');
+                    }
+                } else {
+                    rawChip.disabled = false;
+                    rawChip.style.opacity = '';
+                    rawChip.style.pointerEvents = '';
+                }
+            }
+
+            loadData();
+        }
+
+        // =============================================
+        // DATA LOADING
+        // =============================================
+        async function loadData() {
+            if (!activeTopic) return;
+            const meta = getMeta(activeTopic);
+
+            // Status: loading
+            const dot = document.getElementById('st-dot');
+            const text = document.getElementById('st-text');
+            const points = document.getElementById('st-points');
+            const range = document.getElementById('st-range');
+            dot.className = 'st-dot loading';
+            text.textContent = `Fetching ${meta.label}…`;
+            points.textContent = '';
+            range.textContent = '';
+
+            try {
+                let allSeries = [];
+
+                if (meta.collections) {
+                    // Compound topic: fetch each collection in parallel
+                    const results = await Promise.all(meta.collections.map(async (col) => {
+                        const url = buildUrl(col.id, activeInterval, activePast);
+                        const res = await fetch(url);
+                        if (!res.ok) throw new Error(`HTTP ${res.status} for ${col.name}`);
+                        const series = await res.json();
+                        // Tag each series with the collection name, but preserve the type
+                        return series.map(s => ({
+                            ...s,
+                            name: col.name,
+                            mode: s.name // 'Min-Max' or 'Avg' (or undefined for raw)
+                        }));
+                    }));
+                    allSeries = results.flat();
+                } else {
+                    // Single collection topic
+                    const url = buildUrl(activeTopic, activeInterval, activePast);
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const series = await res.json();
+                    // Rename "Min-Max"/"Avg" to topic label so they group together, but preserve mode
+                    allSeries = series.map(s => ({
+                        ...s,
+                        name: meta.label,
+                        mode: s.name
+                    }));
+                }
+
+                renderChart(allSeries, meta);
+
+                // Status: success
+                let total = 0;
+                let tMin = Infinity, tMax = -Infinity;
+                allSeries.forEach(s => {
+                    total += s.data ? s.data.length : 0;
+                    if (s.data && s.data.length) {
+                        tMin = Math.min(tMin, s.data[0][0]);
+                        tMax = Math.max(tMax, s.data[s.data.length - 1][0]);
+                    }
+                });
+                dot.className = 'st-dot';
+                dot.style.background = resolveColor(meta.color);
+                dot.style.boxShadow = `0 0 8px ${resolveColor(meta.color)}`;
+                text.textContent = meta.title;
+                points.textContent = `${total.toLocaleString()} pts`;
+                if (tMin < Infinity) {
+                    const d1 = new Date(tMin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    const d2 = new Date(tMax).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    range.textContent = `${d1} → ${d2}`;
+                }
+            } catch (err) {
+                dot.className = 'st-dot error';
+                text.textContent = `Error: ${err.message}`;
+                points.textContent = '';
+                range.textContent = '';
+            }
+        }
+
+        // =============================================
+        // CHART RENDERING
+        // =============================================
+        function resolveColor(cssVar) {
+            // Extract CSS variable name from "var(--color-elec)" format
+            const match = cssVar.match(/var\((--[^)]+)\)/);
+            if (match) {
+                return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim();
+            }
+            return cssVar; // already a raw color
+        }
+
+        function hexToRgb(hex) {
+            return [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+        }
+
+        let currentZoom = null;
+
+        function handleZoom(chart) {
+            const min = chart.scales.x.min;
+            const max = chart.scales.x.max;
+            const now = Date.now();
+            const duration = max - min;
+
+            // Auto interval selection
+            let newInterval = '60';
+            if (duration < 2 * 3600 * 1000) newInterval = '00';      // < 2h -> Raw
+            else if (duration < 12 * 3600 * 1000) newInterval = '01'; // < 12h -> 1m
+            else if (duration < 3 * 24 * 3600 * 1000) newInterval = '05'; // < 3d -> 5m
+            else if (duration < 7 * 24 * 3600 * 1000) newInterval = '15'; // < 7d -> 15m
+            else if (duration < 30 * 24 * 3600 * 1000) newInterval = '60'; // < 30d -> 1h
+            else newInterval = '24'; // > 30d -> 1d
+
+            // Auto past range (ensure data coverage)
+            // Calculate hours needed to cover the zoomed window start time
+            let hoursNeeded = Math.ceil((now - min) / 3600000);
+
+            // Avoid reducing past range if we are just exploring current data,
+            // but if we need MORE data, extend it.
+            // Also if we zoomed deep into history, we might want to extend activePast to cover it.
+            let newPast = String(Math.max(hoursNeeded + 1, parseInt(activePast) || 12));
+
+            activeInterval = newInterval;
+            activePast = newPast;
+            currentZoom = { min, max };
+
+            // Show reset button
+            document.getElementById('btn-reset-zoom').style.display = '';
+            updateChips();
+            loadData();
+        }
+
+        function resetZoom() {
+            currentZoom = null;
+            activePast = '12';
+            activeInterval = '00';
+            document.getElementById('btn-reset-zoom').style.display = 'none';
+            updateChips();
+            loadData();
+        }
+
+        function updateChips() {
+            document.querySelectorAll('.chip[data-past]').forEach(c => {
+                c.classList.toggle('active', c.dataset.past === activePast);
+            });
+            document.querySelectorAll('.chip[data-interval]').forEach(c => {
+                c.classList.toggle('active', c.dataset.interval === activeInterval);
+            });
+        }
+
+        function renderChart(seriesData, meta) {
+            if (chart) { chart.destroy(); chart = null; }
+
+            const ctx = document.getElementById('chart-canvas');
+            const isBar = (meta.chartType === 'bar');
+            const groupColor = resolveColor(meta.color);
+            const [r, g, b] = hexToRgb(groupColor);
+
+            const datasets = [];
+
+            // Group series by their display name (e.g. "Upper", "Lower", or topic label)
+            const grouped = {};
+            seriesData.forEach(s => {
+                const key = s.name || meta.label;
+                if (!grouped[key]) grouped[key] = [];
+                grouped[key].push(s);
+            });
+
+            // Process each group
+            Object.keys(grouped).forEach((key, groupIdx) => {
+                const group = grouped[key];
+                const minMax = group.find(s => s.mode === 'Min-Max');
+                const avg = group.find(s => s.mode === 'Avg');
+
+                // Determine color opacity based on group index (for distinct series)
+                const totalGroups = Object.keys(grouped).length;
+                const opacity = totalGroups > 1 ? 1 - (groupIdx * 0.2) : 1;
+                const lineAlpha = Math.max(opacity, 0.4);
+                const bandAlpha = 0.12 * lineAlpha;
+
+                // Case 1: Interval Data (Min-Max + Avg)
+                if (minMax && avg) {
+                    // Min band (lower bound) — invisible fill target
+                    datasets.push({
+                        label: `${key} Min`,
+                        data: minMax.data.map(pt => ({ x: pt[0], y: pt[1] })),
+                        borderColor: 'transparent',
+                        backgroundColor: 'transparent',
+                        borderWidth: 0,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: false,
+                        tension: 0.15,
+                        hidden: false,
+                        _isBand: true,
+                    });
+
+                    // Max band (upper bound) — fills to previous (Min)
+                    datasets.push({
+                        label: `${key} Max`,
+                        data: minMax.data.map(pt => ({ x: pt[0], y: pt[2] })),
+                        borderColor: 'transparent',
+                        backgroundColor: `rgba(${r},${g},${b},${bandAlpha})`,
+                        borderWidth: 0,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        fill: '-1',
+                        tension: 0.15,
+                        _isBand: true,
+                    });
+
+                    // Avg Line (on top)
+                    datasets.push({
+                        label: key,
+                        data: avg.data.map(pt => ({ x: pt[0], y: pt[1] })),
+                        borderColor: `rgba(${r},${g},${b},${lineAlpha})`,
+                        backgroundColor: isBar ? `rgba(${r},${g},${b},${lineAlpha})` : 'transparent',
+                        borderWidth: isBar ? 0 : 1.5,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        pointHoverBackgroundColor: groupColor,
+                        pointHoverBorderColor: '#fff',
+                        pointHoverBorderWidth: 1.5,
+                        fill: false,
+                        tension: 0.15,
+                        barPercentage: 0.8,
+                        categoryPercentage: 0.9,
+                    });
+                }
+                // Case 2: Raw/Single Data (or fallback)
+                else {
+                    group.forEach(s => {
+                        datasets.push({
+                            label: key, // Use the shared key name
+                            data: s.data.map(pt => ({ x: pt[0], y: pt[1] })),
+                            borderColor: `rgba(${r},${g},${b},${lineAlpha})`,
+                            backgroundColor: isBar ? `rgba(${r},${g},${b},${lineAlpha})` : `rgba(${r},${g},${b},0.06)`,
+                            borderWidth: isBar ? 0 : 1.5,
+                            pointRadius: 0,
+                            pointHoverRadius: 3,
+                            pointHoverBackgroundColor: groupColor,
+                            pointHoverBorderColor: '#fff',
+                            pointHoverBorderWidth: 1.5,
+                            fill: !isBar, // Only fill if generic line chart (Raw)
+                            tension: 0.15,
+                            barPercentage: 0.8,
+                            categoryPercentage: 0.9,
+                        });
+                    });
+                }
+            });
+
+            chart = new Chart(ctx, {
+                type: isBar ? 'bar' : 'line',
+                data: { datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: false,
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false,
+                    },
+                    plugins: {
+                        zoom: {
+                            limits: {
+                                x: { min: 0, max: Date.now(), minRange: 1000 * 60 }
+                            },
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                                threshold: 0,
+                                onPanComplete: ({ chart }) => handleZoom(chart)
+                            },
+                            zoom: {
+                                wheel: { enabled: true },
+                                pinch: { enabled: true },
+                                drag: { enabled: false },
+                                mode: 'x',
+                                onZoomComplete: ({ chart }) => handleZoom(chart)
+                            }
+                        },
+                        legend: {
+                            display: datasets.some(d => !d._isBand),
+                            position: 'top',
+                            labels: {
+                                filter: (item, data) => !data.datasets[item.datasetIndex]._isBand,
+                                color: '#a3a3a3',
+                                font: { family: 'Inter, system-ui', size: 11 },
+                                boxWidth: 10,
+                                boxHeight: 2,
+                                padding: 14,
+                            },
+                        },
+                        tooltip: {
+                            filter: (item) => !item.dataset._isBand,
+                            backgroundColor: 'rgba(10, 10, 10, 0.95)',
+                            borderColor: '#1f1f1f',
+                            borderWidth: 1,
+                            titleColor: '#f5f5f5',
+                            bodyColor: '#d4d4d4',
+                            titleFont: { family: 'Inter, system-ui', size: 11, weight: '600' },
+                            bodyFont: { family: "'JetBrains Mono', monospace", size: 12 },
+                            padding: { top: 8, bottom: 8, left: 12, right: 12 },
+                            cornerRadius: 6,
+                            displayColors: true,
+                            boxWidth: 6,
+                            boxHeight: 6,
+                            boxPadding: 4,
+                            callbacks: {
+                                title(items) {
+                                    if (!items.length) return '';
+                                    const d = new Date(items[0].parsed.x);
+                                    return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' })
+                                        + '  ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                                },
+                                label(item) {
+                                    return ` ${item.parsed.y.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${meta.unit}`;
+                                },
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            min: currentZoom ? currentZoom.min : undefined,
+                            max: currentZoom ? currentZoom.max : undefined,
+                            time: {
+                                displayFormats: {
+                                    second: 'HH:mm:ss',
+                                    minute: 'HH:mm',
+                                    hour: 'MMM d HH:mm',
+                                    day: 'MMM d',
+                                    month: 'MMM yyyy',
+                                },
+                            },
+                            grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
+                            border: { color: '#1f1f1f' },
+                            ticks: {
+                                color: '#525252',
+                                font: { family: 'Inter, system-ui', size: 10 },
+                                maxTicksLimit: 14,
+                                padding: 6,
+                            },
+                        },
+                        y: {
+                            grid: { color: 'rgba(255,255,255,0.06)', drawTicks: false },
+                            border: { color: '#1f1f1f' },
+                            ticks: {
+                                color: '#525252',
+                                font: { family: "'JetBrains Mono', monospace", size: 10 },
+                                padding: 8,
+                                callback: v => v.toLocaleString(),
+                            },
+                            title: {
+                                display: true,
+                                text: meta.unit,
+                                color: '#525252',
+                                font: { family: 'Inter, system-ui', size: 11, weight: '500' },
+                                padding: { bottom: 4 },
+                            },
+                        },
+                    },
+                },
+            });
+        }
+
+        // =============================================
+        // OVERVIEW DASHBOARD
+        // =============================================
+        // Define which topics to show in the overview
+        // For compound topics, use the first collection's id for the sparkline
+        function getOverviewTopics() {
+            const items = [];
+            topics.forEach(g => {
+                g.items.forEach(t => {
+                    const fetchId = t.collections ? t.collections[0].id : t.id;
+                    items.push({
+                        id: t.id,
+                        fetchId: fetchId,
+                        label: t.label,
+                        unit: t.unit,
+                        title: t.title,
+                        color: g.color,
+                        chartType: t.chartType || 'line',
+                    });
+                });
+            });
+            return items;
+        }
+
+        function destroyOverviewCharts() {
+            overviewCharts.forEach(c => c.destroy());
+            overviewCharts = [];
+        }
+
+        async function showOverview() {
+            // Reset state
+            activeTopic = null;
+            if (chart) { chart.destroy(); chart = null; }
+            destroyOverviewCharts();
+
+            // Navbar state
+            document.getElementById('btn-hvac').classList.remove('active-hvac');
+            document.getElementById('btn-overview').classList.add('active');
+
+            // Restore sensor sidebar if showing HVAC nav
+            if (document.getElementById('topic-list').dataset.mode === 'hvac') {
+                renderTopics();
+                document.getElementById('topic-list').dataset.mode = 'sensors';
+            }
+
+            // Remove sidebar active state
+            document.querySelectorAll('.sb-topic').forEach(el => el.classList.remove('active'));
+
+            // Show overview, hide detail chart + HVAC
+            document.getElementById('overview-grid').style.display = '';
+            document.getElementById('hvac-panel').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('toolbar').style.display = 'none';
+            document.getElementById('chart-wrap').style.display = 'none';
+            document.getElementById('status-bar').style.display = 'none';
+
+            const grid = document.getElementById('overview-grid');
+            const items = getOverviewTopics();
+
+            // Build card HTML
+            grid.innerHTML = items.map((t, i) => `
+                <div class="overview-card" data-topic-id="${t.id}" onclick="selectTopic('${t.id}')">
+                    <div class="overview-card-header">
+                        <span class="overview-card-label">
+                            <span class="overview-card-dot" style="background:${t.color}"></span>
+                            ${t.label}
+                        </span>
+                        <span class="overview-card-value" id="ov-val-${i}">
+                            <span style="color:var(--text-muted);font-size:11px;">…</span>
+                        </span>
+                    </div>
+                    <div class="overview-card-chart">
+                        <canvas id="ov-chart-${i}"></canvas>
+                    </div>
+                </div>
+            `).join('');
+
+            // Fetch and render each sparkline
+            items.forEach(async (t, i) => {
+                try {
+                    const url = `${API_BASE}/data/${t.fetchId}/01`;
+                    const res = await fetch(url);
+                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                    const series = await res.json();
+
+                    // Get last value
+                    const rawData = series[0];
+                    if (!rawData || !rawData.data || !rawData.data.length) return;
+                    const lastVal = rawData.data[rawData.data.length - 1][1];
+                    const valEl = document.getElementById(`ov-val-${i}`);
+                    if (valEl) {
+                        valEl.innerHTML = `${Number(lastVal).toFixed(1)}<span class="overview-card-unit">${t.unit}</span>`;
+                    }
+
+                    // Resolve color
+                    const color = resolveColor(t.color);
+                    const [r, g, b] = hexToRgb(color);
+                    const isBar = t.chartType === 'bar';
+
+                    const ctx = document.getElementById(`ov-chart-${i}`);
+                    if (!ctx) return;
+
+                    const miniChart = new Chart(ctx, {
+                        type: isBar ? 'bar' : 'line',
+                        data: {
+                            datasets: [{
+                                data: rawData.data.map(pt => ({ x: pt[0], y: pt[1] })),
+                                borderColor: color,
+                                backgroundColor: isBar ? `rgba(${r},${g},${b},0.6)` : `rgba(${r},${g},${b},0.08)`,
+                                borderWidth: isBar ? 0 : 1.5,
+                                pointRadius: 0,
+                                fill: !isBar,
+                                tension: 0.2,
+                                barPercentage: 0.9,
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            animation: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { enabled: false },
+                            },
+                            scales: {
+                                x: {
+                                    type: 'time',
+                                    display: false,
+                                },
+                                y: {
+                                    display: false,
+                                },
+                            },
+                            interaction: { enabled: false },
+                        },
+                    });
+                    overviewCharts.push(miniChart);
+                } catch (err) {
+                    const valEl = document.getElementById(`ov-val-${i}`);
+                    if (valEl) valEl.innerHTML = '<span style="color:var(--color-error);font-size:11px;">err</span>';
+                }
+            });
+        }
+
+        // =============================================
+        // HVAC CONTROL (MQTT WebSocket)
+        // =============================================
+        let mqttClient = null;
+        const MQTT_BROKER = 'ws://falcon:9001';
+        const hvacState = {
+            heatSet: 68, coolSet: 70,
+            heatOnOffset: 0.25, heatOffOffset: 0.25,
+            mode: 'heat', state: '—', temp: '—',
+        };
+
+        function initHvacScheduleDropdowns() {
+            for (let slot = 0; slot < 3; slot++) {
+                const sel = document.getElementById(`sched-h-${slot}`);
+                if (!sel) continue;
+                sel.innerHTML = '';
+                for (let h = 0; h < 24; h++) {
+                    const label = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+                    sel.innerHTML += `<option value="${h}">${label}</option>`;
+                }
+            }
+            // Set firmware defaults
+            document.getElementById('sched-h-0').value = '22';
+            document.getElementById('sched-t-0').value = '60';
+            document.getElementById('sched-h-1').value = '0';
+            document.getElementById('sched-t-1').value = '58';
+            document.getElementById('sched-h-2').value = '6';
+            document.getElementById('sched-t-2').value = '63';
+        }
+
+        function connectMqtt() {
+            if (mqttClient) return;
+            try {
+                mqttClient = mqtt.connect(MQTT_BROKER, {
+                    clientId: 'hem-ui-' + Math.random().toString(16).slice(2, 8),
+                    keepalive: 30,
+                    reconnectPeriod: 5000,
+                });
+
+                mqttClient.on('connect', () => {
+                    const el = document.getElementById('hvac-conn');
+                    el.textContent = 'Online';
+                    el.className = 'hvac-stat-value connected';
+                    mqttClient.subscribe(['hvac/#', 'temp/room1/tempF']);
+                    // Request current values
+                    mqttClient.publish('hvac/heatSet', '?');
+                    mqttClient.publish('hvac/coolSet', '?');
+                    mqttClient.publish('hvac/heatOnOffset', '?');
+                    mqttClient.publish('hvac/heatOffOffset', '?');
+                    mqttClient.publish('hvac/schedule', '?');
+                });
+
+                mqttClient.on('close', () => {
+                    const el = document.getElementById('hvac-conn');
+                    el.textContent = 'Offline';
+                    el.className = 'hvac-stat-value disconnected';
+                });
+
+                mqttClient.on('error', () => {
+                    const el = document.getElementById('hvac-conn');
+                    el.textContent = 'Error';
+                    el.className = 'hvac-stat-value disconnected';
+                });
+
+                mqttClient.on('message', (topic, message) => {
+                    const val = message.toString();
+                    switch (topic) {
+                        case 'hvac/state': {
+                            hvacState.state = val;
+                            const el = document.getElementById('hvac-state');
+                            el.textContent = val;
+                            el.className = 'hvac-stat-value';
+                            if (val.includes('Heat')) el.classList.add('heating');
+                            else if (val.includes('Cool')) el.classList.add('cooling');
+                            // Infer mode from state
+                            if (val === 'Off') updateModeButtons('off');
+                            else if (val.includes('Cool')) updateModeButtons('cool');
+                            else if (val.includes('Heat')) updateModeButtons('heat');
+                            break;
+                        }
+                        case 'temp/room1/tempF': {
+                            hvacState.temp = parseFloat(val).toFixed(1);
+                            document.getElementById('hvac-temp').textContent = hvacState.temp + '°F';
+                            break;
+                        }
+                        case 'hvac/heatSet': {
+                            hvacState.heatSet = parseInt(val);
+                            document.getElementById('hvac-heat-val').textContent = hvacState.heatSet;
+                            break;
+                        }
+                        case 'hvac/coolSet': {
+                            hvacState.coolSet = parseInt(val);
+                            document.getElementById('hvac-cool-val').textContent = hvacState.coolSet;
+                            break;
+                        }
+                        case 'hvac/heartbeat': {
+                            const secs = Math.floor(parseInt(val) / 1000);
+                            const h = Math.floor(secs / 3600);
+                            const m = Math.floor((secs % 3600) / 60);
+                            document.getElementById('hvac-hb').textContent = `${h}h ${m}m`;
+                            break;
+                        }
+                        case 'hvac/heatOnOffset': {
+                            hvacState.heatOnOffset = parseFloat(val);
+                            document.getElementById('hvac-hon-val').textContent = hvacState.heatOnOffset.toFixed(2);
+                            break;
+                        }
+                        case 'hvac/heatOffOffset': {
+                            hvacState.heatOffOffset = parseFloat(val);
+                            document.getElementById('hvac-hoff-val').textContent = hvacState.heatOffOffset.toFixed(2);
+                            break;
+                        }
+                        case 'hvac/info':
+                        case 'hvac/error':
+                            console.log(`[HVAC ${topic}] ${val}`);
+                            break;
+                        case 'hvac/schedule': {
+                            try {
+                                const slots = JSON.parse(val);
+                                if (Array.isArray(slots)) {
+                                    slots.forEach((slot, i) => {
+                                        if (i >= 3) return;
+                                        const hEl = document.getElementById(`sched-h-${i}`);
+                                        const tEl = document.getElementById(`sched-t-${i}`);
+                                        if (hEl) hEl.value = String(slot.h);
+                                        if (tEl) tEl.value = String(slot.t);
+                                    });
+                                }
+                            } catch (e) {
+                                console.warn('Could not parse schedule:', e);
+                            }
+                            break;
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error('MQTT connect failed:', err);
+            }
+        }
+
+        function updateModeButtons(mode) {
+            hvacState.mode = mode;
+            document.getElementById('hvac-mode-heat').className = 'hvac-mode-btn' + (mode === 'heat' ? ' active-heat' : '');
+            document.getElementById('hvac-mode-cool').className = 'hvac-mode-btn' + (mode === 'cool' ? ' active-cool' : '');
+            document.getElementById('hvac-mode-off').className = 'hvac-mode-btn' + (mode === 'off' ? ' active-off' : '');
+        }
+
+        function adjustSetpoint(type, delta) {
+            if (!mqttClient || !mqttClient.connected) return;
+            if (type === 'heat') {
+                hvacState.heatSet = Math.max(50, Math.min(85, hvacState.heatSet + delta));
+                mqttClient.publish('hvac/heatSet', String(hvacState.heatSet));
+                document.getElementById('hvac-heat-val').textContent = hvacState.heatSet;
+            } else {
+                hvacState.coolSet = Math.max(60, Math.min(85, hvacState.coolSet + delta));
+                mqttClient.publish('hvac/coolSet', String(hvacState.coolSet));
+                document.getElementById('hvac-cool-val').textContent = hvacState.coolSet;
+            }
+        }
+
+        function setHvacMode(mode) {
+            if (!mqttClient || !mqttClient.connected) return;
+            mqttClient.publish('hvac/mode', mode);
+            updateModeButtons(mode);
+        }
+
+        function saveSchedule() {
+            if (!mqttClient || !mqttClient.connected) return;
+            const schedule = [];
+            for (let i = 0; i < 3; i++) {
+                schedule.push({
+                    h: parseInt(document.getElementById(`sched-h-${i}`).value),
+                    t: parseInt(document.getElementById(`sched-t-${i}`).value),
+                });
+            }
+            mqttClient.publish('hvac/schedule', JSON.stringify(schedule));
+        }
+
+        function adjustParam(param, delta) {
+            if (!mqttClient || !mqttClient.connected) return;
+            if (param === 'heatOnOffset') {
+                hvacState.heatOnOffset = Math.max(0, Math.round((hvacState.heatOnOffset + delta) * 100) / 100);
+                mqttClient.publish('hvac/heatOnOffset', String(hvacState.heatOnOffset));
+                document.getElementById('hvac-hon-val').textContent = hvacState.heatOnOffset.toFixed(2);
+            } else {
+                hvacState.heatOffOffset = Math.max(0, Math.round((hvacState.heatOffOffset + delta) * 100) / 100);
+                mqttClient.publish('hvac/heatOffOffset', String(hvacState.heatOffOffset));
+                document.getElementById('hvac-hoff-val').textContent = hvacState.heatOffOffset.toFixed(2);
+            }
+        }
+
+        function showHvacPanel() {
+            activeTopic = null;
+            if (chart) { chart.destroy(); chart = null; }
+            destroyOverviewCharts();
+
+            // Activate HVAC button, Deactivate Overview
+            document.getElementById('btn-overview').classList.remove('active');
+            document.getElementById('btn-hvac').classList.add('active-hvac');
+
+            // Replace sidebar with HVAC navigation
+            const el = document.getElementById('topic-list');
+            el.dataset.mode = 'hvac';
+            const hvacItems = [
+                { id: 'temperature', label: 'Temperature', icon: '🌡' },
+                { id: 'schedule', label: 'Schedule', icon: '🕐' },
+                { id: 'tuning', label: 'Tuning', icon: '⚙' },
+            ];
+            let html = '<div class="sb-group">';
+            html += '<div class="sb-group-label">HVAC Control</div>';
+            hvacItems.forEach(item => {
+                html += `<div class="sb-topic" data-hvac-section="${item.id}" onclick="selectHvacSection('${item.id}')">`;
+                html += `<span class="sb-dot" style="background:var(--color-hvac)"></span>`;
+                html += `<span class="sb-topic-label">${item.label}</span>`;
+                html += `</div>`;
+            });
+            html += '</div>';
+            el.innerHTML = html;
+
+            // Hide all other main views
+            document.getElementById('overview-grid').style.display = 'none';
+            document.getElementById('empty-state').style.display = 'none';
+            document.getElementById('toolbar').style.display = 'none';
+            document.getElementById('chart-wrap').style.display = 'none';
+            document.getElementById('status-bar').style.display = 'none';
+            document.getElementById('hvac-panel').style.display = '';
+
+            // Connect MQTT if not already
+            connectMqtt();
+
+            // Default to Temperature section
+            selectHvacSection('temperature');
+        }
+
+        function selectHvacSection(sectionId) {
+            // Hide all view sections
+            document.querySelectorAll('.hvac-view-section').forEach(el => el.style.display = 'none');
+            // Show selected
+            const sec = document.getElementById(`hvac-sec-${sectionId}`);
+            if (sec) sec.style.display = '';
+            // Update sidebar active state
+            document.querySelectorAll('[data-hvac-section]').forEach(el => {
+                el.classList.toggle('active', el.dataset.hvacSection === sectionId);
+            });
+        }
+
+        // =============================================
+        // TOOLBAR INTERACTIONS
+        // =============================================
+        function initToolbar() {
+            // Range chips
+            document.querySelectorAll('.chip[data-past]').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.querySelectorAll('.chip[data-past]').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    activePast = chip.dataset.past;
+                    loadData();
+                });
+            });
+
+            // Interval chips
+            document.querySelectorAll('.chip[data-interval]').forEach(chip => {
+                chip.addEventListener('click', () => {
+                    document.querySelectorAll('.chip[data-interval]').forEach(c => c.classList.remove('active'));
+                    chip.classList.add('active');
+                    activeInterval = chip.dataset.interval;
+                    loadData();
+                });
+            });
+
+            // Refresh button
+            document.getElementById('btn-refresh').addEventListener('click', () => {
+                if (activeTopic) loadData();
+                else showOverview();
+            });
+
+            // Overview button
+            document.getElementById('btn-overview').addEventListener('click', () => {
+                showOverview();
+            });
+
+            // HVAC button
+            document.getElementById('btn-hvac').addEventListener('click', () => {
+                showHvacPanel();
+            });
+        }
+
+        // =============================================
+        // INIT
+        // =============================================
+        document.addEventListener('DOMContentLoaded', () => {
+            renderTopics();
+            initToolbar();
+            initHvacScheduleDropdowns();
+            showOverview();
+        });
+    </script>
+
 </body>
 
 </html>

@@ -3,3 +3,5 @@ node_modules
 hemdb
 .vs
 package-lock.json
+
+.cache/

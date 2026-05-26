@@ -152,7 +152,7 @@ function graph(req, res) {
             arg.push("DEF:in=" + __dirname + "/hem-in.rrd:in:AVERAGE")
             arg.push("LINE1:in#00ff00:Inside")
             arg.push("DEF:out=" + __dirname + "/hem-out.rrd:out:AVERAGE")
-            arg.push("LINE1:out#ff0000:Outside")
+            arg.push("LINE1:out#0000ff:Outside")
             arg.push("CDEF:heaton=heat,0,GT,in,UNKN,IF")
             arg.push("LINE1:heaton#ff0000")
             arg.push("CDEF:coolon=cool,0,GT,in,UNKN,IF")
@@ -183,11 +183,25 @@ function graph(req, res) {
         console.error(data.toString())
     })
     child.stdout.on("data", function (data) {
-//        console.log(data.toString())
+        //        console.log(data.toString())
     })
     child.stdout.pipe(res)
 }
 app.get("/graph/:id", graph)
+
+let lastPulseTime = {};
+
+function updateHistogram(db, topic, value) {
+    let bucket = Math.floor(value / 10) * 10;
+    let key = "hist-" + topic + "-" + bucket;
+    db.get(key, function (error, data) {
+        if (error) {
+            db.put(key, 1);
+        } else {
+            db.put(key, Number(data) + 1);
+        }
+    });
+}
 
 let leveldb = require("level")("./hemdb", {
     valueEncoding: "json"
@@ -236,26 +250,26 @@ app.get("/data/:collection/:past", function (req, res) {
         })
 })
 
-app.get("/dump/:collection", function(req,res){
+app.get("/dump/:collection", function (req, res) {
     let out = []
-    leveldb.createReadStream({gt:req.params.collection + "-", lt:req.params.collection + "."})
-    .on("data", function (data){
-        out.push([data.key, data.value])
-    })
-    .on("end", function(){
-        res.json(out)
-    })
+    leveldb.createReadStream({ gt: req.params.collection + "-", lt: req.params.collection + "." })
+        .on("data", function (data) {
+            out.push([data.key, data.value])
+        })
+        .on("end", function () {
+            res.json(out)
+        })
 })
 
-app.get("/histogram", function(req,res){
+app.get("/histogram", function (req, res) {
     let out = []
-    leveldb.createReadStream({gt:"power-W-00-", lt:"power-W-00."})
-    .on("data", function (data){
-        out.push(data.value)
-    })
-    .on("end", function(){
-        res.json([{type: "histogram", baseSeries: 1, binsNumber:50}, {visible:false, data: out}])
-    })
+    leveldb.createReadStream({ gt: "power-W-00-", lt: "power-W-00." })
+        .on("data", function (data) {
+            out.push(data.value)
+        })
+        .on("end", function () {
+            res.json([{ type: "histogram", baseSeries: 1, binsNumber: 50 }, { visible: false, data: out }])
+        })
 })
 
 app.get("/data/:collection/:time/:past", function (req, res) {
@@ -276,7 +290,7 @@ app.get("/data/:collection/:time/:past", function (req, res) {
         past = Date.now() - Number(past) * 60 * 60 * 1000
     }
 
-    if (req.params.collection === "power-kWh" || req.params.collection === "water-Gal" || req.params.collection === "hvac-heat") {
+    if (req.params.collection === "power-kWh" || req.params.collection === "water-Gal" || req.params.collection === "hvac-heat" || req.params.collection === "hvac-cool") {
 
         let out = []
         leveldb.createReadStream({ gt: collectionName + "-" + past, lt: collectionName + "." })
@@ -322,7 +336,6 @@ client.on("connect", function () {
     client.subscribe("#")
 })
 
-let outsideTemp = 69
 let firstRun = true
 
 client.on("message", function (topic, message) {
@@ -342,17 +355,17 @@ client.on("message", function (topic, message) {
         case "temp/room1/rh":
             child.stdin.write("update " + __dirname + "/hem-rh.rrd N:" + Number(message.toString()) + "\n")
             break
-        case "temp/280049724c2001be":
+        case "temp/284a046d4c2001a3":
             let newTemp = Number(message.toString())
             if (firstRun == false) {
                 outsideTemp = outsideTemp * 0.99375 + newTemp * 0.00625
             } else {
                 outsideTemp = newTemp
-		firstRun = false
+                firstRun = false
             }
 
             child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(outsideTemp.toString()) + "\n")
-//            child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(message.toString()) + "\n")
+//              child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(message.toString()) + "\n")
             break
         case "temp/2809853f030000a7":
             child.stdin.write("update " + __dirname + "/hem-upper.rrd N:" + Number(message.toString()) + "\n")
@@ -402,6 +415,11 @@ client.on("message", function (topic, message) {
             }
         })
     } else if (topic.indexOf("power-W") > -1) {
+        let now = (performance.timeOrigin + performance.now());
+        if (lastPulseTime[topic]) {
+            updateHistogram(leveldb, topic + "-delta", now - lastPulseTime[topic]);
+        }
+        lastPulseTime[topic] = now;
         insertNow(leveldb, topic, message)
         insertAvg(leveldb, topic, message)
         updateCnt(leveldb, "power-kWh", 0.001)
@@ -438,7 +456,7 @@ function getMonthBucket() {
 }
 
 function insertNow(db, topic, message) {
-    let key = topic + "-00-" + Date.now()
+    let key = topic + "-00-" + (performance.timeOrigin + performance.now()).toFixed(3)
     db.put(key, Number(message))
 }
 

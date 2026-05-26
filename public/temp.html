@@ -71,6 +71,7 @@
             <p><span class="disabled btn btn-info" id="cool">Cool</span>
               <span class="disabled btn btn-default" id="off">Off</span>
               <span class="disabled btn btn-danger" id="heat">Heat</span>
+              <span class="disabled btn btn-success" id="auto">Auto</span>
             </p>
           </div>
         </div>
@@ -104,7 +105,7 @@
 
       let temp = []
 
-      let client = mqtt.connect("ws://192.168.1.2:9001")
+      let client = mqtt.connect("ws://192.168.144.2:9001")
 //let host = window.location.host;
 //let client = mqtt.connect("ws://" + host + ":9001");
 
@@ -118,7 +119,7 @@
         client.subscribe("hvac/+")
         client.subscribe("temp/room1/tempF")
         client.subscribe("temp/room1/rh")
-        client.subscribe("temp/280049724c2001be")
+        client.subscribe("temp/284a046d4c2001a3")
         client.publish("hvac/coolSet", "?")
         client.publish("hvac/heatSet", "?")
       })
@@ -134,16 +135,25 @@
               $("#cool").removeClass("disabled")
               $("#heat").addClass("disabled")
               $("#off").removeClass("disabled")
+              $("#auto").removeClass("disabled")
             }
             if (message.toString().includes("Cool")) {
               $("#heat").removeClass("disabled")
               $("#cool").addClass("disabled")
               $("#off").removeClass("disabled")
+              $("#auto").removeClass("disabled")
             }
             if (message.toString().includes("Off")) {
               $("#heat").removeClass("disabled")
               $("#cool").removeClass("disabled")
               $("#off").addClass("disabled")
+              $("#auto").removeClass("disabled")
+            }
+            if (message.toString().includes("Auto")) {
+              $("#heat").removeClass("disabled")
+              $("#cool").removeClass("disabled")
+              $("#off").removeClass("disabled")
+              $("#auto").addClass("disabled")
             }
             break
           case "temp/room1/tempF":
@@ -153,12 +163,12 @@
           case "temp/room1/rh":
             $("#rh").html("<p>Humidity: " + message.toString() + " %</p>")
             break
-          case "temp/280049724c2001be":
+          case "temp/284a046d4c2001a3":
             $("#out").html("<p>Outdoor Temp: " + message.toString() + " F </p>")
             break
           case "hvac/coolSet":
             if (message.toString() == "?") break
-            if (Number(message.toString()) < 60) {
+            if (Number(message.toString()) < 58) {
               client.publish("hvac/coolSet", "60")
             }
             if (Number(message.toString()) > 85) {
@@ -171,7 +181,7 @@
             break
           case "hvac/heatSet":
             if (message.toString() == "?") break
-            if (Number(message.toString()) < 60) {
+            if (Number(message.toString()) < 58) {
               client.publish("hvac/heatSet", "60")
             }
             if (Number(message.toString()) > 85) {
@@ -222,6 +232,11 @@
       $("#off").click(function () {
         client.publish("hvac/mode", "off")
         $("#off").addClass("disabled")
+      })
+
+      $("#auto").click(function () {
+        client.publish("hvac/mode", "auto")
+        $("#auto").addClass("disabled")
       })
 
     })

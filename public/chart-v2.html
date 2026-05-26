@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Home Energy Management | Premium</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="css/chart-v2.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>Energy Dashboard</h1>
+        </header>
+        <main>
+            <div class="controls-container">
+                <div class='btn-group type'>
+                    <button data-type='power-kWh' data-title='Electricity Consumption' data-unit='kWh'>kWh</button>
+                    <button data-type='power-W' class='selected' data-title='Electricity Consumption Rate' data-unit='W'>W</button>
+                    <button data-type='water-Gal' data-title='Water Consumption' data-unit='Gal'>Gal</button>
+                    <button data-type='water-GPM' data-title='Water Consumption Rate' data-unit='GPM'>GPM</button>
+                    <button data-type='temp-room1-tempF' data-title='Inside Temperature' data-unit='F'>Inside Temp</button>
+                    <button data-type='temp-room1-dewF' data-title='Inside Dew Point' data-unit='F'>Inside Dew</button>
+                    <button data-type='temp-room1-rh' data-title='Inside Relative Humidity' data-unit='%'>Inside RH</button>
+                    <button data-type="histogram">Histogram</button>
+                </div>
+
+                <div class='btn-group time'>
+                    <button data-time='00' class='selected'>Real-time</button>
+                    <button data-time='01' data-sub='1m intervals'>1m</button>
+                    <button data-time='05' data-sub='5m intervals'>5m</button>
+                    <button data-time='15' data-sub='15m intervals'>15m</button>
+                    <button data-time='60' data-sub='1h intervals'>1h</button>
+                    <button data-time='24' data-sub='24h intervals'>24h</button>
+                    <button data-time='28' data-sub='1mo intervals'>1mo</button>
+                </div>
+
+                <div class='btn-group past'>
+                    <button data-past='01' class='selected'>1H</button>
+                    <button data-past='06'>6H</button>
+                    <button data-past='12'>12H</button>
+                    <button data-past='24'>1D</button>
+                    <button data-past='48'>2D</button>
+                    <button data-past='168'>7D</button>
+                    <button data-past='0'>All</button>
+                </div>
+            </div>
+
+            <div id="container"></div>
+        </main>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.highcharts.com/highcharts.js"></script>
+    <script src="https://code.highcharts.com/highcharts-more.js"></script>
+    <script src="https://code.highcharts.com/modules/histogram-bellcurve.js"></script>
+    <script src="https://code.highcharts.com/modules/accessibility.js"></script>
+    <script src="js/mqtt.min.js"></script>
+    <script src="js/chart-v2.js"></script>
+</body>
+</html>

@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>Home Energy Monitor</title>
+</head>
+
+<body>
+    <span id="power"></span>
+    <br>
+    <span id="kWh"></span>
+    <br>
+    <span id="t"></span>
+    <br>
+    <span id="out"></span>
+    <br>
+    <span id="upper"></span>
+    <br>
+    <span id="lower"></span>
+    <br>
+    <span id="achigh"></span>
+    <br>
+    <span id="aclow"></span>
+    <br>
+    <span id="gal"></span>
+    <br>
+    <span id="gpm"></span>
+    <br>
+    <span id="rh"></span>
+    <br>
+    <span id="dew"></span>
+    <br>
+    <span id="state"></span>
+    <br>
+    <span id="cool"></span>
+    <br>
+    <span id="heat"></span>
+    <br>
+    <img id="watt2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="temp2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="ac2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="wh2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="gpm2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="watt24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="temp24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="ac24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="wh24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="gpm24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="watt96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="temp96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="ac96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="wh96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <br>
+    <img id="gpm96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <script>
+        $(function () {
+            function time() {
+                return Math.floor(Date.now() / 1000 / 30) * 60 * 1000
+            }
+
+            function loadImg(temp) {
+                $("#watt2").attr("src", "/graph/watt?" + temp + "&start=12h")
+                $("#temp2").attr("src", "/graph/temp?" + temp + "&start=12h")
+                $("#ac2").attr("src", "/graph/ac?" + temp + "&start=12h")
+                $("#wh2").attr("src", "/graph/wh?" + temp + "&start=12h")
+                $("#gpm2").attr("src", "/graph/gpm?" + temp + "&start=12h")
+                $("#watt24").attr("src", "/graph/watt?" + temp + "&start=48h")
+                $("#temp24").attr("src", "/graph/temp?" + temp + "&start=48h")
+                $("#ac24").attr("src", "/graph/ac?" + temp + "&start=48h")
+                $("#wh24").attr("src", "/graph/wh?" + temp + "&start=48h")
+                $("#gpm24").attr("src", "/graph/gpm?" + temp + "&start=48h")
+                $("#watt96").attr("src", "/graph/watt?" + temp + "&start=96h")
+                $("#temp96").attr("src", "/graph/temp?" + temp + "&start=96h")
+                $("#ac96").attr("src", "/graph/ac?" + temp + "&start=96h")
+                $("#wh96").attr("src", "/graph/wh?" + temp + "&start=96h")
+                $("#gpm96").attr("src", "/graph/gpm?" + temp + "&start=96h")
+            }
+
+            loadImg(time())
+
+            $("img").click(function () {
+                loadImg(time())
+            })
+
+            setInterval(function(){
+                loadImg(time())
+            },30000)
+
+//            let client = mqtt.connect("ws://192.168.1.2:9001")
+let host = window.location.hostname;
+console.log(window.location.hostname)
+//console.log(currentHost)
+let client = mqtt.connect("ws://" + host + ":9001");
+            client.on("error", function (err) {
+                console.log(err)
+                client.end()
+            })
+
+            client.on("connect", function () {
+                client.subscribe("#")
+            })
+
+            client.on("message", function (topic, message, packet) {
+                switch (topic) {
+                    case "hvac/state":
+                        $("#state").html(message.toString())
+                        break
+
+                    case "power/W":
+                        $("#power").html("Current Power: " + message.toString() + "W")
+                        break
+
+                    case "temp/280049724c2001be":
+                        $("#out").html("Outside Temp:  " + message.toString() + "F")
+                        break
+
+                    case "temp/2809853f030000a7":
+                        $("#upper").html("Upper WH Temp:  " + message.toString() + "F")
+                        break
+
+                    case "temp/2813513f03000072":
+                        $("#lower").html("Lower WH Temp:  " + message.toString() + "F")
+                        break
+
+                    case "temp/289fa756b5013c68":
+                        $("#achigh").html("High AC Temp:  " + message.toString() + "F")
+                        break
+
+                    case "temp/2874913c46200105":
+                        $("#aclow").html("Low AC Temp:  " + message.toString() + "F")
+                        break
+
+                    case "water/Gal":
+                        $("#gal").html("Gallons:  " + message.toString())
+                        break
+
+                    case "water/GPM":
+                        $("#gpm").html(message.toString() + " GPM")
+                        break
+
+                    case "temp/room1/tempF":
+                        $("#t").html("Inside Temp: " + message.toString() + "F")
+                        break
+
+                    case "temp/room1/rh":
+                        $("#rh").html("RH: " + message.toString() + "%")
+                        break
+
+                    case "temp/room1/dewF":
+                        $("#dew").html("DEW: " + message.toString() + "F")
+                        break
+
+                    case "power/kWh":
+			let cost = 25
+			if (Number(message) > 500) {
+				cost += 500 * 0.120331
+				cost += (Number(message) - 500) * 0.101597
+			} else {
+				cost += Number(message) * 0.120331
+			}
+			cost += Number(message) * 0.019743
+			cost += Number(message) * 0.000390
+			cost *= 1.07
+                        let month
+                        if (new Date().getDate() > 6) {
+                            month = new Date().getMonth()
+                        } else {
+                            month = new Date().getMonth() - 1
+                        }
+                        let startOfBillingCycle = new Date(new Date().getFullYear(), month, 7).getTime()
+                        let endOfBillingCycle = new Date(new Date().getFullYear(), month + 1, 7).getTime()
+                        let projectedkWh = Number(message) / (new Date().getTime() - startOfBillingCycle) * (endOfBillingCycle - startOfBillingCycle)
+                        let projectedCost = 25
+			if (projectedkWh > 500) {
+				projectedCost += 500 * 0.120331
+				projectedCost += (projectedkWh - 500) * 0.101597
+			} else {
+				projectedCost += projectedkWh * 0.120331
+			}
+			projectedCost += projectedkWh * 0.019743
+			projectedCost += projectedkWh * 0.00390
+			projectedCost *= 1.07
+                        $("#kWh").html(message.toString() + " kWh @ $" + cost.toFixed(2) + "<br>Projected Monthly Cost:  " + projectedkWh.toFixed(2) + "kWh @ $" + projectedCost.toFixed(2))
+                        break
+
+                    case "hvac/coolTime":
+                        $("#cool").html("Cool Runtime: " + message.toString() + " Min")
+                        break
+
+                    case "hvac/heatTime":
+                        $("#heat").html("Heat Runtime: " + message.toString() + " Min")
+                        break
+
+                }
+            })
+        })
+    </script>
+</body>
+
+</html>

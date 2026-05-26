@@ -79,7 +79,7 @@
             // MQTT Connection
             const host = window.location.hostname;
             const client = mqtt.connect(`ws://${host}:9001`);
-console.log(client)
+//console.log(client)
 
             client.on("error", (err) => {
                 console.error("MQTT Error:", err);
@@ -101,7 +101,7 @@ console.log(client)
                 switch (topic) {
                     case "hvac/state": updateHTML("state", msgStr); break;
                     case "power/W": updateHTML("power", `Current Power: ${msgStr}W`); break;
-                    case "temp/280049724c2001be": updateHTML("out", `Outside Temp: ${msgStr}F`); break;
+                    case "temp/284a046d4c2001a3": updateHTML("out", `Outside Temp: ${msgStr}F`); break;
                     case "temp/2809853f030000a7": updateHTML("upper", `Upper WH Temp: ${msgStr}F`); break;
                     case "temp/2813513f03000072": updateHTML("lower", `Lower WH Temp: ${msgStr}F`); break;
                     case "temp/289fa756b5013c68": updateHTML("achigh", `High AC Temp: ${msgStr}F`); break;
@@ -118,11 +118,11 @@ console.log(client)
                         const kwh = Number(msgStr);
                         let cost = 25;
                         if (kwh > 500) {
-                            cost += (500 * 0.120331) + ((kwh - 500) * 0.101597);
+                            cost += (500 * 0.123131) + ((kwh - 500) * 0.104397);
                         } else {
-                            cost += kwh * 0.120331;
+                            cost += kwh * 0.123131;
                         }
-                        cost += (kwh * 0.019743) + (kwh * 0.000390);
+                        cost += (kwh * 0.021983) + (kwh * 0.000390);
                         cost *= 1.07;
 
                         const now = new Date();
@@ -133,11 +133,11 @@ console.log(client)
                         const projectedkWh = kwh / (now.getTime() - startOfCycle) * (endOfCycle - startOfCycle);
                         let projectedCost = 25;
                         if (projectedkWh > 500) {
-                            projectedCost += (500 * 0.120331) + ((projectedkWh - 500) * 0.101597);
+                            projectedCost += (500 * 0.123131) + ((projectedkWh - 500) * 0.104397);
                         } else {
-                            projectedCost += projectedkWh * 0.120331;
+                            projectedCost += projectedkWh * 0.123131;
                         }
-                        projectedCost += (projectedkWh * 0.019743) + (projectedkWh * 0.00390);
+                        projectedCost += (projectedkWh * 0.021983) + (projectedkWh * 0.000390);
                         projectedCost *= 1.07;
 
                         updateHTML("kWh", `${msgStr} kWh @ $${cost.toFixed(2)}<br>Projected Monthly Cost: ${projectedkWh.toFixed(2)}kWh @ $${projectedCost.toFixed(2)}`);

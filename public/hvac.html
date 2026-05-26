@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HVAC Command Center</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-color: #050a10;
+            --card-bg: rgba(15, 25, 40, 0.7);
+            --accent-blue: #00d2ff;
+            --accent-orange: #ff9d00;
+            --text-primary: #ffffff;
+            --text-secondary: #a0aec0;
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle at top right, #0a1f3d, #050a10);
+            overflow-x: hidden;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 500px;
+            padding: 2.5rem;
+            background: var(--card-bg);
+            backdrop-filter: blur(20px);
+            border-radius: 40px;
+            border: 1px solid var(--glass-border);
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            margin: 1rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            font-weight: 600;
+            font-size: 1.8rem;
+            letter-spacing: -0.5px;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, #fff, #a0aec0);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: rgba(0, 210, 255, 0.1);
+            color: var(--accent-blue);
+            border: 1px solid rgba(0, 210, 255, 0.2);
+        }
+
+        .temp-display {
+            text-align: center;
+            margin-bottom: 3.5rem;
+            position: relative;
+        }
+
+        #current-temp {
+            font-size: 6rem;
+            font-weight: 300;
+            line-height: 1;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .temp-unit {
+            font-size: 2rem;
+            vertical-align: top;
+            margin-left: -5px;
+        }
+
+        .target-info {
+            color: var(--text-secondary);
+            font-size: 1rem;
+        }
+
+        .schedule-section {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 24px;
+            padding: 1.5rem;
+            border: 1px solid var(--glass-border);
+        }
+
+        .schedule-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .schedule-header h2 {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .schedule-item {
+            display: grid;
+            grid-template-columns: 80px 1fr 60px;
+            align-items: center;
+            gap: 1.5rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .schedule-item:last-child {
+            border-bottom: none;
+        }
+
+        .time-label {
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: var(--accent-blue);
+            border-radius: 50%;
+            cursor: pointer;
+            box-shadow: 0 0 10px var(--accent-blue);
+            transition: 0.2s;
+        }
+
+        .temp-val {
+            text-align: right;
+            font-weight: 600;
+            color: var(--accent-blue);
+        }
+
+        .actions {
+            margin-top: 2.5rem;
+            display: grid;
+            gap: 1rem;
+        }
+
+        button {
+            width: 100%;
+            padding: 1.2rem;
+            border-radius: 18px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-family: 'Outfit', sans-serif;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #00d2ff, #3a7bd5);
+            color: white;
+            box-shadow: 0 10px 20px -5px rgba(58, 123, 213, 0.5);
+        }
+
+        .btn-primary:active {
+            transform: scale(0.98);
+        }
+
+        #log {
+            margin-top: 1.5rem;
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+
+        /* Responsive Mobile Tweak */
+        @media (max-width: 400px) {
+            .dashboard {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="dashboard">
+        <header>
+            <h1>HVAC Home</h1>
+            <div id="status" class="status-badge">Connecting...</div>
+        </header>
+
+        <main>
+            <div class="temp-display">
+                <span id="current-temp">--<span class="temp-unit">°F</span></span>
+                <div class="target-info">Target: <span id="target-temp">--</span>°F</div>
+            </div>
+
+            <div class="schedule-section">
+                <div class="schedule-header">
+                    <h2>Daily Schedule</h2>
+                </div>
+
+                <div id="schedule-container">
+                    <!-- Schedule items will be generated here -->
+                </div>
+            </div>
+
+            <div class="actions">
+                <button class="btn-primary" onclick="updateSchedule()">Push to Furnace</button>
+            </div>
+
+            <div id="log">Awaiting data from 192.168.144.2...</div>
+        </main>
+    </div>
+
+    <script>
+        const client = mqtt.connect('ws://192.168.144.2:9001'); // Using MQTT over WebSockets
+
+        const schedule = [
+            { h: 22, t: 60, label: "Night (10PM)" },
+            { h: 0, t: 58, label: "Deep (12AM)" },
+            { h: 6, t: 63, label: "Day (6AM)" }
+        ];
+
+        function initScheduleUI() {
+            const container = document.getElementById('schedule-container');
+            container.innerHTML = '';
+            schedule.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.className = 'schedule-item';
+                div.innerHTML = `
+                    <div class="time-label">${item.label}</div>
+                    <input type="range" min="50" max="75" value="${item.t}"
+                           oninput="updateVal(${index}, this.value)">
+                    <div class="temp-val" id="val-${index}">${item.t}°F</div>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function updateVal(index, val) {
+            schedule[index].t = parseInt(val);
+            document.getElementById(`val-${index}`).innerText = val + '°F';
+        }
+
+        function updateSchedule() {
+            const payload = JSON.stringify(schedule.map(s => ({ h: s.h, t: s.t })));
+            client.publish('hvac/schedule', payload, { retain: true });
+            document.getElementById('log').innerText = "Schedule sent! Waiting for ack...";
+
+            // Temporary feedback
+            const btn = document.querySelector('.btn-primary');
+            const originalColor = btn.style.background;
+            btn.style.background = '#48bb78';
+            setTimeout(() => btn.style.background = originalColor, 2000);
+        }
+
+        client.on('connect', () => {
+            document.getElementById('status').innerText = 'System Live';
+            document.getElementById('status').style.color = '#48bb78';
+            document.getElementById('status').style.background = 'rgba(72, 187, 120, 0.1)';
+            client.subscribe('hvac/schedule');
+            client.subscribe('temp/room1/tempF');
+            client.subscribe('hvac/heatSet');
+            client.subscribe('hvac/state');
+            client.subscribe('hvac/info');
+
+            // Request initial state from furnace
+            client.publish('hvac/heatSet', '?');
+            client.publish('hvac/schedule', '?');
+        });
+
+        client.on('message', (topic, message) => {
+            const msg = message.toString();
+            if (topic === 'temp/room1/tempF') {
+                document.getElementById('current-temp').childNodes[0].nodeValue = parseFloat(msg).toFixed(1);
+            }
+            if (topic === 'hvac/heatSet') {
+                document.getElementById('target-temp').innerText = msg;
+            }
+            if (topic === 'hvac/info') {
+                document.getElementById('log').innerText = msg;
+            }
+            if (topic === 'hvac/schedule') {
+                try {
+                    const remoteSchedule = JSON.parse(msg);
+                    // Match remote entries to our labeled local structure
+                    remoteSchedule.forEach((remote, i) => {
+                        if (schedule[i]) {
+                            schedule[i].h = remote.h;
+                            schedule[i].t = remote.t;
+                        }
+                    });
+                    initScheduleUI();
+                    document.getElementById('log').innerText = "Schedule synced from furnace.";
+                } catch (e) {
+                    console.error("Failed to parse schedule", e);
+                }
+            }
+        });
+
+        initScheduleUI();
+    </script>
+</body>
+
+</html>

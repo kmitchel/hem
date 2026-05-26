@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Thermostat</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    :root {
+      --bg-gradient-start: #0f0c29;
+      --bg-gradient-mid: #302b63;
+      --bg-gradient-end: #24243e;
+      --glass-bg: rgba(255, 255, 255, 0.08);
+      --glass-border: rgba(255, 255, 255, 0.15);
+      --text-primary: #ffffff;
+      --text-secondary: rgba(255, 255, 255, 0.7);
+      --text-muted: rgba(255, 255, 255, 0.4);
+      --accent-heat: #ff6b6b;
+      --accent-heat-glow: rgba(255, 107, 107, 0.4);
+      --accent-cool: #4ecdc4;
+      --accent-cool-glow: rgba(78, 205, 196, 0.4);
+      --accent-idle: #a8a8a8;
+      --success: #6bcf7f;
+      --warning: #ffd93d;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      height: 100%;
+      overflow: hidden;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-mid) 50%, var(--bg-gradient-end) 100%);
+      height: 100vh;
+      height: 100dvh;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      max-width: 480px;
+      margin: 0 auto;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-shrink: 0;
+    }
+
+    .header h1 {
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.35rem 0.75rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 2rem;
+      font-size: 0.65rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-idle);
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.heating {
+      background: var(--accent-heat);
+      box-shadow: 0 0 10px var(--accent-heat-glow);
+    }
+
+    .status-dot.cooling {
+      background: var(--accent-cool);
+      box-shadow: 0 0 10px var(--accent-cool-glow);
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1;
+      }
+
+      50% {
+        opacity: 0.5;
+      }
+    }
+
+    /* Main Temperature Display */
+    .temp-display {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 0;
+    }
+
+    .current-temp {
+      font-size: clamp(4rem, 18vw, 7rem);
+      font-weight: 300;
+      line-height: 1;
+      letter-spacing: -0.05em;
+      background: linear-gradient(180deg, var(--text-primary) 0%, var(--text-secondary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      transition: all 0.3s ease;
+    }
+
+    .current-temp.heating {
+      background: linear-gradient(180deg, #fff 0%, var(--accent-heat) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    .current-temp.cooling {
+      background: linear-gradient(180deg, #fff 0%, var(--accent-cool) 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+    }
+
+    .temp-unit {
+      font-size: 1.5rem;
+      font-weight: 300;
+      color: var(--text-muted);
+      vertical-align: super;
+    }
+
+    .temp-meta {
+      display: flex;
+      gap: 1.5rem;
+      margin-top: 0.5rem;
+      color: var(--text-secondary);
+      font-size: 0.75rem;
+    }
+
+    .temp-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+    }
+
+    .temp-meta-item svg {
+      width: 14px;
+      height: 14px;
+      opacity: 0.7;
+    }
+
+    /* Controls Section */
+    .controls {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    /* Setpoint Row - Side by Side */
+    .setpoint-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.5rem;
+    }
+
+    .setpoint-card {
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 1rem;
+      padding: 0.75rem;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .setpoint-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .setpoint-label {
+      font-size: 0.6rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+    }
+
+    .setpoint-label.heat {
+      color: var(--accent-heat);
+    }
+
+    .setpoint-label.cool {
+      color: var(--accent-cool);
+    }
+
+    .setpoint-value {
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    .setpoint-buttons {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .setpoint-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      height: 2.5rem;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--glass-border);
+      border-radius: 0.75rem;
+      color: var(--text-primary);
+      font-size: 1.25rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .setpoint-btn:active {
+      transform: scale(0.95);
+      background: rgba(255, 255, 255, 0.15);
+    }
+
+    .setpoint-btn.disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* Mode Row */
+    .mode-row {
+      display: flex;
+      gap: 0.5rem;
+    }
+
+    .mode-btn {
+      flex: 1;
+      padding: 0.75rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 0.75rem;
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .mode-btn.active {
+      color: var(--text-primary);
+    }
+
+    .mode-btn.active.heat {
+      background: rgba(255, 107, 107, 0.2);
+      border-color: var(--accent-heat);
+    }
+
+    .mode-btn.active.cool {
+      background: rgba(78, 205, 196, 0.2);
+      border-color: var(--accent-cool);
+    }
+
+    .mode-btn.active.off {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: var(--text-secondary);
+    }
+
+    /* MPC Status - Compact */
+    .mpc-status {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 0.75rem;
+      background: var(--glass-bg);
+      border: 1px solid var(--glass-border);
+      border-radius: 0.75rem;
+      font-size: 0.65rem;
+    }
+
+    .mpc-left {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .mpc-label {
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .mpc-mode {
+      padding: 0.2rem 0.5rem;
+      background: rgba(107, 207, 127, 0.2);
+      border-radius: 0.5rem;
+      color: var(--success);
+      font-weight: 500;
+    }
+
+    .mpc-mode.away {
+      background: rgba(255, 217, 61, 0.2);
+      color: var(--warning);
+    }
+
+    .mpc-mode.override {
+      background: rgba(255, 107, 107, 0.2);
+      color: var(--accent-heat);
+    }
+
+    .mpc-stats {
+      display: flex;
+      gap: 1rem;
+      color: var(--text-secondary);
+    }
+
+    .mpc-stat {
+      text-align: center;
+    }
+
+    .mpc-stat-value {
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* Connection Status */
+    .connection-lost {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 0.5rem;
+      background: rgba(255, 107, 107, 0.9);
+      color: white;
+      text-align: center;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transform: translateY(-100%);
+      transition: transform 0.3s ease;
+      z-index: 100;
+    }
+
+    .connection-lost.visible {
+      transform: translateY(0);
+    }
+
+    /* Desktop */
+    @media (min-width: 480px) {
+      .container {
+        padding: 1.5rem;
+      }
+
+      .current-temp {
+        font-size: clamp(5rem, 15vw, 8rem);
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="connection-lost" id="connectionLost">Connection Lost</div>
+
+  <div class="container">
+    <header class="header">
+      <h1>Thermostat</h1>
+      <div class="status-badge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="hvacState">--</span>
+      </div>
+    </header>
+
+    <div class="temp-display">
+      <div class="current-temp" id="currentTemp">--<span class="temp-unit">°F</span></div>
+      <div class="temp-meta">
+        <div class="temp-meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2m0 16v2M4 12H2m20 0h-2" />
+          </svg>
+          <span id="outdoorTemp">--°F</span>
+        </div>
+        <div class="temp-meta-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+          </svg>
+          <span id="humidity">--%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="setpoint-row">
+        <div class="setpoint-card">
+          <div class="setpoint-header">
+            <span class="setpoint-label heat">Heat</span>
+            <span class="setpoint-value" id="heatSet">--</span>
+          </div>
+          <div class="setpoint-buttons">
+            <button class="setpoint-btn disabled" id="heatDown">−</button>
+            <button class="setpoint-btn disabled" id="heatUp">+</button>
+          </div>
+        </div>
+        <div class="setpoint-card">
+          <div class="setpoint-header">
+            <span class="setpoint-label cool">Cool</span>
+            <span class="setpoint-value" id="coolSet">--</span>
+          </div>
+          <div class="setpoint-buttons">
+            <button class="setpoint-btn disabled" id="coolDown">−</button>
+            <button class="setpoint-btn disabled" id="coolUp">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-row">
+        <button class="mode-btn heat" id="modeHeat">Heat</button>
+        <button class="mode-btn off" id="modeOff">Off</button>
+        <button class="mode-btn cool" id="modeCool">Cool</button>
+      </div>
+
+      <div class="mpc-status">
+        <div class="mpc-left">
+          <span class="mpc-label">MPC</span>
+          <span class="mpc-mode" id="mpcMode">--</span>
+        </div>
+        <div class="mpc-stats">
+          <div class="mpc-stat">
+            <span class="mpc-stat-value" id="mpcTarget">--°</span>
+          </div>
+          <div class="mpc-stat">
+            <span class="mpc-stat-value" id="mpcRate">--/hr</span>
+          </div>
+          <div class="mpc-stat">
+            <span class="mpc-stat-value" id="mpcPresence">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="js/mqtt.min.js"></script>
+
+  <script>
+    $(function () {
+      const state = { 'hvac/coolSet': null, 'hvac/heatSet': null };
+      const client = mqtt.connect("ws://192.168.1.2:9001");
+
+      client.on("error", () => $("#connectionLost").addClass("visible"));
+      client.on("offline", () => $("#connectionLost").addClass("visible"));
+      client.on("reconnect", () => $("#connectionLost").removeClass("visible"));
+
+      client.on("connect", () => {
+        $("#connectionLost").removeClass("visible");
+        client.subscribe(["hvac/+", "temp/room1/tempF", "temp/room1/rh", "temp/284a046d4c2001a3", "state"]);
+        client.publish("hvac/coolSet", "?");
+        client.publish("hvac/heatSet", "?");
+      });
+
+      client.on("message", (topic, message) => {
+        const value = message.toString();
+        switch (topic) {
+          case "temp/room1/tempF":
+            $("#currentTemp").html(`${parseFloat(value).toFixed(1)}<span class="temp-unit">°F</span>`);
+            break;
+          case "temp/room1/rh":
+            $("#humidity").text(parseFloat(value).toFixed(0) + "%");
+            break;
+          case "temp/284a046d4c2001a3":
+            $("#outdoorTemp").text(parseFloat(value).toFixed(1) + "°F");
+            break;
+          case "hvac/state":
+            updateHvacState(value);
+            break;
+          case "hvac/coolSet":
+            if (value === "?") return;
+            state["hvac/coolSet"] = parseInt(value);
+            $("#coolSet").text(value + "°");
+            $(".setpoint-btn").removeClass("disabled");
+            break;
+          case "hvac/heatSet":
+            if (value === "?") return;
+            state["hvac/heatSet"] = parseInt(value);
+            $("#heatSet").text(value + "°");
+            $(".setpoint-btn").removeClass("disabled");
+            break;
+          case "state":
+            try { updateMpcStatus(JSON.parse(value)); } catch (e) { }
+            break;
+        }
+      });
+
+      function updateHvacState(s) {
+        const dot = $("#statusDot"), temp = $("#currentTemp");
+        dot.removeClass("heating cooling");
+        temp.removeClass("heating cooling");
+        switch (s) {
+          case "Heating":
+            dot.addClass("heating"); temp.addClass("heating");
+            $("#hvacState").text("HEATING"); updateModeButtons("heat"); break;
+          case "HeatOn":
+            dot.addClass("heating");
+            $("#hvacState").text("HEAT ON"); updateModeButtons("heat"); break;
+          case "HeatReady":
+            $("#hvacState").text("READY"); updateModeButtons("heat"); break;
+          case "Cooling":
+            dot.addClass("cooling"); temp.addClass("cooling");
+            $("#hvacState").text("COOLING"); updateModeButtons("cool"); break;
+          case "CoolOn":
+            dot.addClass("cooling");
+            $("#hvacState").text("COOL ON"); updateModeButtons("cool"); break;
+          case "CoolReady":
+            $("#hvacState").text("READY"); updateModeButtons("cool"); break;
+          case "FanWait":
+            $("#hvacState").text("FAN"); break;
+          case "Wait":
+            $("#hvacState").text("WAIT"); break;
+          case "Off":
+            $("#hvacState").text("OFF"); updateModeButtons("off"); break;
+          default:
+            $("#hvacState").text(s);
+        }
+      }
+
+      function updateModeButtons(mode) {
+        $(".mode-btn").removeClass("active");
+        if (mode === "heat") $("#modeHeat").addClass("active");
+        else if (mode === "cool") $("#modeCool").addClass("active");
+        else if (mode === "off") $("#modeOff").addClass("active");
+      }
+
+      function updateMpcStatus(mpc) {
+        const el = $("#mpcMode");
+        el.removeClass("away override");
+        if (mpc.mode === "AWAY") el.addClass("away").text("AWAY");
+        else if (mpc.mode === "OVERRIDE") el.addClass("override").text("OVERRIDE");
+        else el.text(mpc.mode || "--");
+        $("#mpcTarget").text((mpc.target || "--") + "°");
+        $("#mpcRate").text((mpc.heatRate || "--") + "/hr");
+        $("#mpcPresence").text(mpc.presence || "--");
+      }
+
+      $("#heatDown").click(function () {
+        if ($(this).hasClass("disabled")) return;
+        const v = state["hvac/heatSet"] - 1;
+        if (v >= 60) { client.publish("hvac/heatSet", v.toString()); state["hvac/heatSet"] = v; $("#heatSet").text(v + "°"); }
+      });
+      $("#heatUp").click(function () {
+        if ($(this).hasClass("disabled")) return;
+        const v = state["hvac/heatSet"] + 1;
+        if (v <= 85) { client.publish("hvac/heatSet", v.toString()); state["hvac/heatSet"] = v; $("#heatSet").text(v + "°"); }
+      });
+      $("#coolDown").click(function () {
+        if ($(this).hasClass("disabled")) return;
+        const v = state["hvac/coolSet"] - 1;
+        if (v >= 60) { client.publish("hvac/coolSet", v.toString()); state["hvac/coolSet"] = v; $("#coolSet").text(v + "°"); }
+      });
+      $("#coolUp").click(function () {
+        if ($(this).hasClass("disabled")) return;
+        const v = state["hvac/coolSet"] + 1;
+        if (v <= 85) { client.publish("hvac/coolSet", v.toString()); state["hvac/coolSet"] = v; $("#coolSet").text(v + "°"); }
+      });
+
+      $("#modeHeat").click(() => client.publish("hvac/mode", "heat"));
+      $("#modeCool").click(() => client.publish("hvac/mode", "cool"));
+      $("#modeOff").click(() => client.publish("hvac/mode", "off"));
+    });
+  </script>
+</body>
+
+</html>

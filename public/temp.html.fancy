@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Falcon MPC</title>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --card-bg: #1e1e1e;
+      --text-main: #ffffff;
+      --text-muted: #a0a0a0;
+      --heat: #ff6b6b;
+      --cool: #4ecdc4;
+      --accent: #ffe66d;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    /* Header & Status */
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--card-bg);
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: var(--text-muted);
+      transition: background-color 0.3s;
+    }
+
+    .status-dot.heating {
+      background-color: var(--heat);
+      box-shadow: 0 0 8px var(--heat);
+    }
+
+    .status-dot.cooling {
+      background-color: var(--cool);
+      box-shadow: 0 0 8px var(--cool);
+    }
+
+    /* Main Temperature Display */
+    .temp-display {
+      text-align: center;
+      margin: 20px 0;
+    }
+
+    .current-temp {
+      font-size: 6rem;
+      font-weight: 200;
+      line-height: 1;
+      margin-bottom: 10px;
+      transition: color 0.3s;
+    }
+
+    .current-temp.heating {
+      color: var(--heat);
+    }
+
+    .current-temp.cooling {
+      color: var(--cool);
+    }
+
+    .temp-unit {
+      font-size: 2rem;
+      color: var(--text-muted);
+      vertical-align: top;
+    }
+
+    .temp-meta {
+      display: flex;
+      justify-content: center;
+      gap: 30px;
+      color: var(--text-muted);
+      font-size: 1.1rem;
+    }
+
+    .temp-meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .temp-meta-item svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Controls Layout */
+    .controls {
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    /* Setpoint Cards */
+    .setpoint-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+
+    .setpoint-card {
+      background: var(--card-bg);
+      border-radius: 16px;
+      padding: 15px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .setpoint-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .setpoint-label {
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .setpoint-label.heat {
+      color: var(--heat);
+    }
+
+    .setpoint-label.cool {
+      color: var(--cool);
+    }
+
+    .setpoint-value {
+      font-size: 1.8rem;
+      font-weight: 500;
+    }
+
+    .setpoint-buttons {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    .setpoint-btn {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.05);
+      border: none;
+      color: var(--text-main);
+      font-size: 1.2rem;
+      padding: 10px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .setpoint-btn:active {
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .setpoint-btn.disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    /* Mode Buttons */
+    .mode-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 10px;
+      background: var(--card-bg);
+      padding: 5px;
+      border-radius: 16px;
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 12px;
+      font-size: 1rem;
+      font-weight: 500;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .mode-btn.active {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .mode-btn.active.heat {
+      background: var(--heat);
+    }
+
+    .mode-btn.active.cool {
+      background: var(--cool);
+    }
+
+    .mode-btn.active.off {
+      background: #444;
+    }
+
+    /* MPC Status */
+    .mpc-status {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 12px;
+      padding: 12px 16px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      /* Left takes space, Stats take what they need */
+      align-items: center;
+      gap: 10px;
+    }
+
+    .mpc-left {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      overflow: hidden;
+    }
+
+    .mpc-label {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .mpc-mode {
+      font-size: 0.9rem;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mpc-mode.away {
+      color: var(--accent);
+    }
+
+    .mpc-mode.override {
+      color: var(--heat);
+    }
+
+    .mpc-stats {
+      display: flex;
+      gap: 15px;
+    }
+
+    .mpc-stat {
+      text-align: right;
+    }
+
+    .mpc-stat-value {
+      font-size: 0.9rem;
+      display: block;
+      white-space: nowrap;
+    }
+
+    /* Connection Toast */
+    .toast {
+      position: fixed;
+      bottom: -50px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #ff4757;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 20px;
+      font-size: 0.9rem;
+      transition: bottom 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      z-index: 1000;
+    }
+
+    .toast.visible {
+      bottom: 20px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="connectionLost" class="toast">Connection Lost</div>
+
+  <div class="container">
+    <header>
+      <h1>Thermostat</h1>
+      <div class="status-badge">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="hvacState">--</span>
+      </div>
+    </header>
+
+    <div class="temp-display">
+      <div class="current-temp" id="currentTemp">--<span class="temp-unit">°F</span></div>
+      <div class="temp-meta">
+        <div class="temp-meta-item">
+          <!-- Outdoor Icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <circle cx="12" cy="12" r="5"></circle>
+            <path d="M12 1v2"></path>
+            <path d="M12 21v2"></path>
+            <path d="M4.22 4.22l1.42 1.42"></path>
+            <path d="M18.36 18.36l1.42 1.42"></path>
+            <path d="M1 12h2"></path>
+            <path d="M21 12h2"></path>
+            <path d="M4.22 19.78l1.42-1.42"></path>
+            <path d="M18.36 5.64l1.42-1.42"></path>
+          </svg>
+          <span id="outdoorTemp">--°F</span>
+        </div>
+        <div class="temp-meta-item">
+          <!-- Humidity Icon -->
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path>
+          </svg>
+          <span id="humidity">--%</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <div class="setpoint-row">
+        <div class="setpoint-card">
+          <div class="setpoint-header">
+            <span class="setpoint-label heat">Heat</span>
+            <span class="setpoint-value" id="heatSet">--</span>
+          </div>
+          <div class="setpoint-buttons">
+            <button class="setpoint-btn disabled" id="heatDown">−</button>
+            <button class="setpoint-btn disabled" id="heatUp">+</button>
+          </div>
+        </div>
+        <div class="setpoint-card">
+          <div class="setpoint-header">
+            <span class="setpoint-label cool">Cool</span>
+            <span class="setpoint-value" id="coolSet">--</span>
+          </div>
+          <div class="setpoint-buttons">
+            <button class="setpoint-btn disabled" id="coolDown">−</button>
+            <button class="setpoint-btn disabled" id="coolUp">+</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="mode-row">
+        <button class="mode-btn" id="modeHeat">Heat</button>
+        <button class="mode-btn" id="modeOff">Off</button>
+        <button class="mode-btn" id="modeCool">Cool</button>
+      </div>
+
+      <div class="mpc-status">
+        <div class="mpc-left">
+          <span class="mpc-label">MPC</span>
+          <span class="mpc-mode" id="mpcMode">--</span>
+        </div>
+        <div class="mpc-stats">
+          <div class="mpc-stat">
+            <span class="mpc-stat-value" id="mpcTarget">--°</span>
+          </div>
+          <div class="mpc-stat">
+            <span class="mpc-stat-value" id="mpcRate">--/hr</span>
+          </div>
+          <div class="mpc-stat">
+            <span class="mpc-stat-value" id="mpcPresence">--</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Using the same mqtt.min.js that is likely already in js/ folder -->
+  <script src="js/mqtt.min.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // Internal state to track setpoints
+      const state = { 'hvac/coolSet': null, 'hvac/heatSet': null };
+
+      // DOM Elements caching for performance
+      const els = {
+        currentTemp: document.getElementById('currentTemp'),
+        humidity: document.getElementById('humidity'),
+        outdoorTemp: document.getElementById('outdoorTemp'),
+        statusDot: document.getElementById('statusDot'),
+        hvacState: document.getElementById('hvacState'),
+        heatSet: document.getElementById('heatSet'),
+        coolSet: document.getElementById('coolSet'),
+        mpcMode: document.getElementById('mpcMode'),
+        mpcTarget: document.getElementById('mpcTarget'),
+        mpcRate: document.getElementById('mpcRate'),
+        mpcPresence: document.getElementById('mpcPresence'),
+        connToast: document.getElementById('connectionLost'),
+        buttons: {
+          heatDown: document.getElementById('heatDown'),
+          heatUp: document.getElementById('heatUp'),
+          coolDown: document.getElementById('coolDown'),
+          coolUp: document.getElementById('coolUp'),
+          modeHeat: document.getElementById('modeHeat'),
+          modeOff: document.getElementById('modeOff'),
+          modeCool: document.getElementById('modeCool')
+        }
+      };
+
+      // Connect to MQTT
+      // Assuming existing broker config from previous file
+      const client = mqtt.connect("ws://192.168.1.2:9001");
+
+      client.on("error", () => els.connToast.classList.add("visible"));
+      client.on("offline", () => els.connToast.classList.add("visible"));
+      client.on("reconnect", () => els.connToast.classList.remove("visible"));
+
+      client.on("connect", () => {
+        els.connToast.classList.remove("visible");
+        client.subscribe(["hvac/+", "temp/room1/tempF", "temp/room1/rh", "temp/284a046d4c2001a3", "state"]);
+        // Request initial values
+        client.publish("hvac/coolSet", "?");
+        client.publish("hvac/heatSet", "?");
+      });
+
+      client.on("message", (topic, msgBuffer) => {
+        const value = msgBuffer.toString();
+
+        if (topic === "temp/room1/tempF") {
+          const t = parseFloat(value).toFixed(1);
+          els.currentTemp.innerHTML = `${t}<span class="temp-unit">°F</span>`;
+        } else if (topic === "temp/room1/rh") {
+          els.humidity.textContent = parseFloat(value).toFixed(0) + "%";
+        } else if (topic === "temp/284a046d4c2001a3") { // Outdoor
+          els.outdoorTemp.textContent = parseFloat(value).toFixed(1) + "°F";
+        } else if (topic === "hvac/state") {
+          updateHvacState(value);
+        } else if (topic === "hvac/coolSet") {
+          if (value === "?") return;
+          state["hvac/coolSet"] = parseInt(value);
+          els.coolSet.textContent = value + "°";
+          enableButtons();
+        } else if (topic === "hvac/heatSet") {
+          if (value === "?") return;
+          state["hvac/heatSet"] = parseInt(value);
+          els.heatSet.textContent = value + "°";
+          enableButtons();
+        } else if (topic === "state") {
+          try { updateMpcStatus(JSON.parse(value)); } catch (e) { console.error("Bad JSON", e); }
+        }
+      });
+
+      function enableButtons() {
+        document.querySelectorAll('.setpoint-btn').forEach(b => b.classList.remove('disabled'));
+      }
+
+      function updateHvacState(s) {
+        // Reset classes
+        els.statusDot.className = 'status-dot';
+        els.currentTemp.classList.remove('heating', 'cooling');
+
+        let label = s;
+        let mode = null;
+
+        switch (s) {
+          case "Heating":
+            els.statusDot.classList.add("heating");
+            els.currentTemp.classList.add("heating");
+            label = "HEATING";
+            mode = "heat";
+            break;
+          case "HeatOn":
+            els.statusDot.classList.add("heating");
+            label = "HEAT ON";
+            mode = "heat";
+            break;
+          case "HeatReady":
+            label = "READY";
+            mode = "heat";
+            break;
+          case "Cooling":
+            els.statusDot.classList.add("cooling");
+            els.currentTemp.classList.add("cooling");
+            label = "COOLING";
+            mode = "cool";
+            break;
+          case "CoolOn":
+            els.statusDot.classList.add("cooling");
+            label = "COOL ON";
+            mode = "cool";
+            break;
+          case "CoolReady":
+            label = "READY";
+            mode = "cool";
+            break;
+          case "FanWait":
+            label = "FAN";
+            break;
+          case "Wait":
+            label = "WAIT";
+            break;
+          case "Off":
+            label = "OFF";
+            mode = "off";
+            break;
+        }
+        els.hvacState.textContent = label;
+        if (mode) updateModeButtons(mode);
+      }
+
+      function updateModeButtons(mode) {
+        Object.values(els.buttons).forEach(b => {
+          if (b.id.startsWith('mode')) b.classList.remove('active', 'heat', 'cool', 'off');
+        });
+
+        if (mode === 'heat') els.buttons.modeHeat.classList.add('active', 'heat');
+        else if (mode === 'cool') els.buttons.modeCool.classList.add('active', 'cool');
+        else if (mode === 'off') els.buttons.modeOff.classList.add('active', 'off');
+      }
+
+      function updateMpcStatus(mpc) {
+        els.mpcMode.className = 'mpc-mode'; // Reset
+
+        if (mpc.mode === "AWAY") {
+          els.mpcMode.classList.add("away");
+          els.mpcMode.textContent = "AWAY";
+        } else if (mpc.mode === "OVERRIDE") {
+          els.mpcMode.classList.add("override");
+          els.mpcMode.textContent = "OVERRIDE";
+        } else {
+          els.mpcMode.textContent = mpc.mode || "--";
+        }
+
+        els.mpcTarget.textContent = (mpc.target || "--") + "°";
+        els.mpcRate.textContent = (mpc.heatRate || "--") + "/hr";
+        els.mpcPresence.textContent = mpc.presence || "--";
+      }
+
+      // Button Handlers
+      els.buttons.heatDown.addEventListener('click', () => {
+        if (state["hvac/heatSet"] === null) return;
+        const v = state["hvac/heatSet"] - 1;
+        if (v >= 60) {
+          client.publish("hvac/heatSet", v.toString());
+          // Optimistic update
+          state["hvac/heatSet"] = v;
+          els.heatSet.textContent = v + "°";
+        }
+      });
+
+      els.buttons.heatUp.addEventListener('click', () => {
+        if (state["hvac/heatSet"] === null) return;
+        const v = state["hvac/heatSet"] + 1;
+        if (v <= 85) {
+          client.publish("hvac/heatSet", v.toString());
+          state["hvac/heatSet"] = v;
+          els.heatSet.textContent = v + "°";
+        }
+      });
+
+      els.buttons.coolDown.addEventListener('click', () => {
+        if (state["hvac/coolSet"] === null) return;
+        const v = state["hvac/coolSet"] - 1;
+        if (v >= 60) {
+          client.publish("hvac/coolSet", v.toString());
+          state["hvac/coolSet"] = v;
+          els.coolSet.textContent = v + "°";
+        }
+      });
+
+      els.buttons.coolUp.addEventListener('click', () => {
+        if (state["hvac/coolSet"] === null) return;
+        const v = state["hvac/coolSet"] + 1;
+        if (v <= 85) {
+          client.publish("hvac/coolSet", v.toString());
+          state["hvac/coolSet"] = v;
+          els.coolSet.textContent = v + "°";
+        }
+      });
+
+      els.buttons.modeHeat.addEventListener('click', () => client.publish("hvac/mode", "heat"));
+      els.buttons.modeCool.addEventListener('click', () => client.publish("hvac/mode", "cool"));
+      els.buttons.modeOff.addEventListener('click', () => client.publish("hvac/mode", "off"));
+
+    });
+  </script>
+</body>
+
+</html>
