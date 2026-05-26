@@ -333,13 +333,13 @@ client.on("message", function (topic, message) {
         case "water/GPM":
             child.stdin.write("update " + __dirname + "/hem-gpm.rrd N:" + Number(message.toString()) + "\n")
             break
-        case "temp/tempF":
+        case "temp/room1/tempF":
             child.stdin.write("update " + __dirname + "/hem-in.rrd N:" + Number(message.toString()) + "\n")
             break
-        case "temp/dewF":
+        case "temp/room1/dewF":
             child.stdin.write("update " + __dirname + "/hem-dew.rrd N:" + Number(message.toString()) + "\n")
             break
-        case "temp/rh":
+        case "temp/room1/rh":
             child.stdin.write("update " + __dirname + "/hem-rh.rrd N:" + Number(message.toString()) + "\n")
             break
         case "temp/280049724c2001be":

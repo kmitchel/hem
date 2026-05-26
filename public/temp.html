@@ -116,9 +116,8 @@
 
       client.on("connect", function () {
         client.subscribe("hvac/+")
-        client.subscribe("temp/tempF")
-        client.subscribe("temp/di")
-        client.subscribe("temp/rh")
+        client.subscribe("temp/room1/tempF")
+        client.subscribe("temp/room1/rh")
         client.subscribe("temp/280049724c2001be")
         client.publish("hvac/coolSet", "?")
         client.publish("hvac/heatSet", "?")
@@ -147,14 +146,11 @@
               $("#off").addClass("disabled")
             }
             break
-          case "temp/tempF":
+          case "temp/room1/tempF":
             $("#temp").html("<h1 class=\"cover-heading\">" + message.toString() + " F</h1>")
             timer = 0
             break
-          case "temp/di":
-            $("#di").html("<p>Discomfort: " + message.toString() + " F</p>")
-            break
-          case "temp/rh":
+          case "temp/room1/rh":
             $("#rh").html("<p>Humidity: " + message.toString() + " %</p>")
             break
           case "temp/280049724c2001be":
