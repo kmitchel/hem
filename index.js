@@ -336,7 +336,7 @@ client.on("connect", function () {
     client.subscribe("#")
 })
 
-let firstRun = true
+let outsideTemp = null
 
 client.on("message", function (topic, message) {
     switch (topic) {
@@ -357,14 +357,18 @@ client.on("message", function (topic, message) {
             break
         case "temp/284a046d4c2001a3":
             let newTemp = Number(message.toString())
-            if (firstRun == false) {
+            if (!Number.isFinite(newTemp)) {
+                console.error("Invalid outside temperature:", message.toString())
+                break
+            }
+
+            if (Number.isFinite(outsideTemp)) {
                 outsideTemp = outsideTemp * 0.99375 + newTemp * 0.00625
             } else {
                 outsideTemp = newTemp
-                firstRun = false
             }
 
-            child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(outsideTemp.toString()) + "\n")
+            child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + outsideTemp + "\n")
 //              child.stdin.write("update " + __dirname + "/hem-out.rrd N:" + Number(message.toString()) + "\n")
             break
         case "temp/2809853f030000a7":
