@@ -337,6 +337,7 @@ client.on("connect", function () {
 })
 
 let outsideTemp = null
+let lastControlTempUpdate = 0
 
 client.on("message", function (topic, message) {
     switch (topic) {
@@ -346,9 +347,23 @@ client.on("message", function (topic, message) {
         case "water/GPM":
             child.stdin.write("update " + __dirname + "/hem-gpm.rrd N:" + Number(message.toString()) + "\n")
             break
-        case "temp/room1/tempF":
-            child.stdin.write("update " + __dirname + "/hem-in.rrd N:" + Number(message.toString()) + "\n")
+        case "hvac/controlTempF": {
+            let ctrlTemp = Number(message.toString())
+            if (Number.isFinite(ctrlTemp)) {
+                lastControlTempUpdate = Date.now()
+                child.stdin.write("update " + __dirname + "/hem-in.rrd N:" + ctrlTemp + "\n")
+            }
             break
+        }
+        case "temp/room1/tempF": {
+            if (Date.now() - lastControlTempUpdate > 45000) {
+                let r1Temp = Number(message.toString())
+                if (Number.isFinite(r1Temp)) {
+                    child.stdin.write("update " + __dirname + "/hem-in.rrd N:" + r1Temp + "\n")
+                }
+            }
+            break
+        }
         case "temp/room1/dewF":
             child.stdin.write("update " + __dirname + "/hem-dew.rrd N:" + Number(message.toString()) + "\n")
             break

@@ -48,6 +48,7 @@
 
         <div class="inner cover">
           <span id="temp"></span>
+          <div id="source"></div>
           <div>
             <span id="rh"></span>
             <span id="di"></span>
@@ -156,9 +157,18 @@
               $("#auto").addClass("disabled")
             }
             break
-          case "temp/room1/tempF":
-            $("#temp").html("<h1 class=\"cover-heading\">" + message.toString() + " F</h1>")
+          case "hvac/controlTempF":
+            $("#temp").html("<h1 class=\"cover-heading\">" + parseFloat(message.toString()).toFixed(1) + " F</h1>")
             timer = 0
+            break
+          case "hvac/tempSource":
+            $("#source").html("<p style='color:#a0aec0;font-size:0.85em;margin:0;'>Source: " + message.toString() + "</p>")
+            break
+          case "temp/room1/tempF":
+            if (!temp["hvac/controlTempF"]) {
+              $("#temp").html("<h1 class=\"cover-heading\">" + parseFloat(message.toString()).toFixed(1) + " F</h1>")
+              timer = 0
+            }
             break
           case "temp/room1/rh":
             $("#rh").html("<p>Humidity: " + message.toString() + " %</p>")
