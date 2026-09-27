@@ -73,6 +73,7 @@
               <span class="disabled btn btn-default" id="off">Off</span>
               <span class="disabled btn btn-danger" id="heat">Heat</span>
             </p>
+            <p id="modeStatus" role="status">Mode unavailable</p>
           </div>
         </div>
         <div class="mastfoot">
@@ -90,6 +91,7 @@
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="js/bootstrap.min.js"></script>
   <script src="js/mqtt.min.js"></script>
+  <script src="js/hvac-mode.js"></script>
 
   <script>
     $(function () {
@@ -106,6 +108,12 @@
       let temp = []
 
       let client = mqtt.connect("ws://192.168.144.2:9001")
+      const mode = HvacMode.createTracker(({ confirmed, pending, notice }) => {
+        $("#cool, #heat, #off").removeClass("disabled");
+        if (confirmed) $("#" + confirmed).addClass("disabled");
+        $("#modeStatus").text(pending ? "Requested " + pending + "; awaiting controller" :
+          (notice || (confirmed === "fan" ? "Mode: Fan (no fan button)" : "Mode: " + confirmed)));
+      });
 //let host = window.location.host;
 //let client = mqtt.connect("ws://" + host + ":9001");
 
@@ -116,45 +124,29 @@
       })
 
       client.on("connect", function () {
-        client.subscribe("hvac/+")
+        mode.connect();
+        client.subscribe("hvac/+", function (err) {
+          if (err) { mode.disconnect(); return; }
+          client.publish("hvac/mode", "?");
+        })
         client.subscribe("temp/room1/tempF")
         client.subscribe("temp/room1/rh")
         client.subscribe("temp/284a046d4c2001a3")
         client.publish("hvac/coolSet", "?")
         client.publish("hvac/heatSet", "?")
-        client.publish("hvac/mode", "?")
       })
 
-      client.on("message", function (topic, message) {
+      client.on("close", () => mode.disconnect());
+      client.on("offline", () => mode.disconnect());
+
+      client.on("message", function (topic, message, packet) {
+        mode.receive(topic, message.toString(), packet);
 
         temp[topic] = message.toString()
 
         switch (topic) {
-          case "hvac/mode":
-            var m = message.toString();
-            $("#cool").removeClass("disabled");
-            $("#heat").removeClass("disabled");
-            $("#off").removeClass("disabled");
-            if (m === "cool") $("#cool").addClass("disabled");
-            else if (m === "heat") $("#heat").addClass("disabled");
-            else if (m === "off") $("#off").addClass("disabled");
-            break;
           case "hvac/state":
             $("#state").html("<p>" + message.toString() + "</p>");
-            var s = message.toString();
-            if (s.includes("Heat")) {
-              $("#cool").removeClass("disabled");
-              $("#heat").addClass("disabled");
-              $("#off").removeClass("disabled");
-            } else if (s.includes("Cool")) {
-              $("#heat").removeClass("disabled");
-              $("#cool").addClass("disabled");
-              $("#off").removeClass("disabled");
-            } else if (s.includes("Off")) {
-              $("#heat").removeClass("disabled");
-              $("#cool").removeClass("disabled");
-              $("#off").addClass("disabled");
-            }
             break;
           case "hvac/controlTempF":
             $("#temp").html("<h1 class=\"cover-heading\">" + parseFloat(message.toString()).toFixed(1) + " F</h1>")
@@ -229,18 +221,15 @@
       })
 
       $("#heat").click(function () {
-        client.publish("hvac/mode", "heat")
-        $("#heat").addClass("disabled")
+        mode.request("heat", (topic, value) => client.publish(topic, value))
       })
 
       $("#cool").click(function () {
-        client.publish("hvac/mode", "cool")
-        $("#cool").addClass("disabled")
+        mode.request("cool", (topic, value) => client.publish(topic, value))
       })
 
       $("#off").click(function () {
-        client.publish("hvac/mode", "off")
-        $("#off").addClass("disabled")
+        mode.request("off", (topic, value) => client.publish(topic, value))
       })
 
 

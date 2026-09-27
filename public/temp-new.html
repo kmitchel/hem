@@ -456,6 +456,7 @@
         <button class="mode-btn off" id="modeOff">Off</button>
         <button class="mode-btn cool" id="modeCool">Cool</button>
       </div>
+      <div id="modeStatus" role="status" style="text-align:center;margin:0.5em 0">Mode unavailable</div>
 
       <div class="mpc-status">
         <div class="mpc-left">
@@ -479,11 +480,17 @@
 
   <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
   <script src="js/mqtt.min.js"></script>
+  <script src="js/hvac-mode.js"></script>
 
   <script>
     $(function () {
       const state = { 'hvac/coolSet': null, 'hvac/heatSet': null };
       const client = mqtt.connect("ws://192.168.1.2:9001");
+      const mode = HvacMode.createTracker(({ confirmed, pending, notice }) => {
+        updateModeButtons(confirmed);
+        $("#modeStatus").text(pending ? "Requested " + pending + "; awaiting controller" :
+          (notice || (confirmed === "fan" ? "Mode: Fan (no fan button)" : "Mode: " + confirmed)));
+      });
 
       client.on("error", () => $("#connectionLost").addClass("visible"));
       client.on("offline", () => $("#connectionLost").addClass("visible"));
@@ -491,14 +498,24 @@
 
       client.on("connect", () => {
         $("#connectionLost").removeClass("visible");
-        client.subscribe(["hvac/+", "temp/room1/tempF", "temp/room1/rh", "temp/284a046d4c2001a3", "state"]);
+        mode.connect();
+        client.subscribe(["hvac/+", "temp/room1/tempF", "temp/room1/rh", "temp/284a046d4c2001a3", "state"], (err) => {
+          if (err) { mode.disconnect(); return; }
+          client.publish("hvac/mode", "?");
+        });
         client.publish("hvac/coolSet", "?");
         client.publish("hvac/heatSet", "?");
       });
 
-      client.on("message", (topic, message) => {
+      client.on("close", () => mode.disconnect());
+      client.on("offline", () => mode.disconnect());
+
+      client.on("message", (topic, message, packet) => {
+        mode.receive(topic, message.toString(), packet);
         const value = message.toString();
         switch (topic) {
+          case "hvac/modeState":
+            break;
           case "temp/room1/tempF":
             $("#currentTemp").html(`${parseFloat(value).toFixed(1)}<span class="temp-unit">°F</span>`);
             break;
@@ -536,26 +553,26 @@
         switch (s) {
           case "Heating":
             dot.addClass("heating"); temp.addClass("heating");
-            $("#hvacState").text("HEATING"); updateModeButtons("heat"); break;
+            $("#hvacState").text("HEATING"); break;
           case "HeatOn":
             dot.addClass("heating");
-            $("#hvacState").text("HEAT ON"); updateModeButtons("heat"); break;
+            $("#hvacState").text("HEAT ON"); break;
           case "HeatReady":
-            $("#hvacState").text("READY"); updateModeButtons("heat"); break;
+            $("#hvacState").text("READY"); break;
           case "Cooling":
             dot.addClass("cooling"); temp.addClass("cooling");
-            $("#hvacState").text("COOLING"); updateModeButtons("cool"); break;
+            $("#hvacState").text("COOLING"); break;
           case "CoolOn":
             dot.addClass("cooling");
-            $("#hvacState").text("COOL ON"); updateModeButtons("cool"); break;
+            $("#hvacState").text("COOL ON"); break;
           case "CoolReady":
-            $("#hvacState").text("READY"); updateModeButtons("cool"); break;
+            $("#hvacState").text("READY"); break;
           case "FanWait":
             $("#hvacState").text("FAN"); break;
           case "Wait":
             $("#hvacState").text("WAIT"); break;
           case "Off":
-            $("#hvacState").text("OFF"); updateModeButtons("off"); break;
+            $("#hvacState").text("OFF"); break;
           default:
             $("#hvacState").text(s);
         }
@@ -600,9 +617,9 @@
         if (v <= 85) { client.publish("hvac/coolSet", v.toString()); state["hvac/coolSet"] = v; $("#coolSet").text(v + "°"); }
       });
 
-      $("#modeHeat").click(() => client.publish("hvac/mode", "heat"));
-      $("#modeCool").click(() => client.publish("hvac/mode", "cool"));
-      $("#modeOff").click(() => client.publish("hvac/mode", "off"));
+      $("#modeHeat").click(() => mode.request("heat", (topic, value) => client.publish(topic, value)));
+      $("#modeCool").click(() => mode.request("cool", (topic, value) => client.publish(topic, value)));
+      $("#modeOff").click(() => mode.request("off", (topic, value) => client.publish(topic, value)));
     });
   </script>
 </body>

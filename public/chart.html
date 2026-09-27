@@ -11,6 +11,7 @@
     <script
         src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns@3.0.0/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
     <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+    <script src="js/hvac-mode.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
     <style>
@@ -911,6 +912,7 @@
                     <button class="hvac-mode-btn" id="hvac-mode-cool" onclick="setHvacMode('cool')">Cool</button>
                     <button class="hvac-mode-btn" id="hvac-mode-off" onclick="setHvacMode('off')">Off</button>
                 </div>
+                <div id="hvac-mode-status" role="status">Mode unavailable</div>
             </div>
 
             <!-- Schedule -->
@@ -1667,8 +1669,15 @@
         const hvacState = {
             heatSet: 68, coolSet: 70,
             heatOnOffset: 0.25, heatOffOffset: 0.25,
-            mode: 'heat', state: '—', temp: '—',
+            mode: null, state: '—', temp: '—',
         };
+
+        const modeTracker = HvacMode.createTracker(({ confirmed, pending, notice }) => {
+            updateModeButtons(confirmed);
+            document.getElementById('hvac-mode-status').textContent = pending
+                ? 'Requested ' + pending + '; awaiting controller'
+                : (notice || (confirmed === 'fan' ? 'Mode: Fan (no fan button)' : 'Mode: ' + confirmed));
+        });
 
         function initHvacScheduleDropdowns() {
             for (let slot = 0; slot < 3; slot++) {
@@ -1702,7 +1711,11 @@
                     const el = document.getElementById('hvac-conn');
                     el.textContent = 'Online';
                     el.className = 'hvac-stat-value connected';
-                    mqttClient.subscribe(['hvac/#', 'temp/room1/tempF']);
+                    modeTracker.connect();
+                    mqttClient.subscribe(['hvac/#', 'temp/room1/tempF'], (err) => {
+                        if (err) { modeTracker.disconnect(); return; }
+                        mqttClient.publish('hvac/mode', '?');
+                    });
                     // Request current values
                     mqttClient.publish('hvac/heatSet', '?');
                     mqttClient.publish('hvac/coolSet', '?');
@@ -1715,16 +1728,19 @@
                     const el = document.getElementById('hvac-conn');
                     el.textContent = 'Offline';
                     el.className = 'hvac-stat-value disconnected';
+                    modeTracker.disconnect();
                 });
 
                 mqttClient.on('error', () => {
                     const el = document.getElementById('hvac-conn');
                     el.textContent = 'Error';
                     el.className = 'hvac-stat-value disconnected';
+                    modeTracker.disconnect();
                 });
 
-                mqttClient.on('message', (topic, message) => {
+                mqttClient.on('message', (topic, message, packet) => {
                     const val = message.toString();
+                    modeTracker.receive(topic, val, packet);
                     switch (topic) {
                         case 'hvac/state': {
                             hvacState.state = val;
@@ -1733,10 +1749,6 @@
                             el.className = 'hvac-stat-value';
                             if (val.includes('Heat')) el.classList.add('heating');
                             else if (val.includes('Cool')) el.classList.add('cooling');
-                            // Infer mode from state
-                            if (val === 'Off') updateModeButtons('off');
-                            else if (val.includes('Cool')) updateModeButtons('cool');
-                            else if (val.includes('Heat')) updateModeButtons('heat');
                             break;
                         }
                         case 'temp/room1/tempF': {
@@ -1821,8 +1833,7 @@
 
         function setHvacMode(mode) {
             if (!mqttClient || !mqttClient.connected) return;
-            mqttClient.publish('hvac/mode', mode);
-            updateModeButtons(mode);
+            modeTracker.request(mode, (topic, value) => mqttClient.publish(topic, value));
         }
 
         function saveSchedule() {

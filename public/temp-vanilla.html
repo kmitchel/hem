@@ -304,6 +304,7 @@
         <button class="mode-btn" id="modeOff">Off</button>
         <button class="mode-btn" id="modeCool">Cool</button>
       </div>
+      <div id="modeStatus" role="status" style="text-align:center;margin:0.5em 0">Mode unavailable</div>
 
       <div class="mpc-status">
         <div class="mpc-left">
@@ -327,6 +328,7 @@
 
   <!-- Using the same mqtt.min.js that is likely already in js/ folder -->
   <script src="js/mqtt.min.js"></script>
+  <script src="js/hvac-mode.js"></script>
 
   <script>
     document.addEventListener("DOMContentLoaded", () => {
@@ -347,6 +349,7 @@
         mpcRate: document.getElementById('mpcRate'),
         mpcPresence: document.getElementById('mpcPresence'),
         connToast: document.getElementById('connectionLost'),
+        modeStatus: document.getElementById('modeStatus'),
         buttons: {
             heatDown: document.getElementById('heatDown'),
             heatUp: document.getElementById('heatUp'),
@@ -361,6 +364,11 @@
       // Connect to MQTT
       // Assuming existing broker config from previous file
       const client = mqtt.connect("ws://192.168.1.2:9001");
+      const mode = HvacMode.createTracker(({ confirmed, pending, notice }) => {
+        updateModeButtons(confirmed);
+        els.modeStatus.textContent = pending ? "Requested " + pending + "; awaiting controller" :
+          (notice || (confirmed === "fan" ? "Mode: Fan (no fan button)" : "Mode: " + confirmed));
+      });
 
       client.on("error", () => els.connToast.classList.add("visible"));
       client.on("offline", () => els.connToast.classList.add("visible"));
@@ -368,13 +376,21 @@
 
       client.on("connect", () => {
         els.connToast.classList.remove("visible");
-        client.subscribe(["hvac/+", "temp/room1/tempF", "temp/room1/rh", "temp/284a046d4c2001a3", "state"]);
+        mode.connect();
+        client.subscribe(["hvac/+", "temp/room1/tempF", "temp/room1/rh", "temp/284a046d4c2001a3", "state"], (err) => {
+          if (err) { mode.disconnect(); return; }
+          client.publish("hvac/mode", "?");
+        });
         // Request initial values
         client.publish("hvac/coolSet", "?");
         client.publish("hvac/heatSet", "?");
       });
 
-      client.on("message", (topic, msgBuffer) => {
+      client.on("close", () => mode.disconnect());
+      client.on("offline", () => mode.disconnect());
+
+      client.on("message", (topic, msgBuffer, packet) => {
+        mode.receive(topic, msgBuffer.toString(), packet);
         const value = msgBuffer.toString();
 
         if (topic === "temp/room1/tempF") {
@@ -411,38 +427,31 @@
         els.currentTemp.classList.remove('heating', 'cooling');
 
         let label = s;
-        let mode = null;
 
         switch (s) {
           case "Heating":
             els.statusDot.classList.add("heating");
             els.currentTemp.classList.add("heating");
             label = "HEATING";
-            mode = "heat";
             break;
           case "HeatOn":
             els.statusDot.classList.add("heating");
             label = "HEAT ON";
-            mode = "heat";
             break;
           case "HeatReady":
             label = "READY";
-            mode = "heat";
             break;
           case "Cooling":
             els.statusDot.classList.add("cooling");
             els.currentTemp.classList.add("cooling");
             label = "COOLING";
-            mode = "cool";
             break;
           case "CoolOn":
             els.statusDot.classList.add("cooling");
             label = "COOL ON";
-            mode = "cool";
             break;
           case "CoolReady":
             label = "READY";
-            mode = "cool";
             break;
           case "FanWait":
             label = "FAN";
@@ -452,11 +461,9 @@
             break;
           case "Off":
             label = "OFF";
-            mode = "off";
             break;
         }
         els.hvacState.textContent = label;
-        if (mode) updateModeButtons(mode);
       }
 
       function updateModeButtons(mode) {
@@ -529,9 +536,9 @@
         }
       });
 
-      els.buttons.modeHeat.addEventListener('click', () => client.publish("hvac/mode", "heat"));
-      els.buttons.modeCool.addEventListener('click', () => client.publish("hvac/mode", "cool"));
-      els.buttons.modeOff.addEventListener('click', () => client.publish("hvac/mode", "off"));
+      els.buttons.modeHeat.addEventListener('click', () => mode.request("heat", (topic, value) => client.publish(topic, value)));
+      els.buttons.modeCool.addEventListener('click', () => mode.request("cool", (topic, value) => client.publish(topic, value)));
+      els.buttons.modeOff.addEventListener('click', () => mode.request("off", (topic, value) => client.publish(topic, value)));
 
     });
   </script>
