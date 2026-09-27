@@ -72,7 +72,6 @@
             <p><span class="disabled btn btn-info" id="cool">Cool</span>
               <span class="disabled btn btn-default" id="off">Off</span>
               <span class="disabled btn btn-danger" id="heat">Heat</span>
-              <span class="disabled btn btn-success" id="auto">Auto</span>
             </p>
           </div>
         </div>
@@ -123,6 +122,7 @@
         client.subscribe("temp/284a046d4c2001a3")
         client.publish("hvac/coolSet", "?")
         client.publish("hvac/heatSet", "?")
+        client.publish("hvac/mode", "?")
       })
 
       client.on("message", function (topic, message) {
@@ -130,33 +130,32 @@
         temp[topic] = message.toString()
 
         switch (topic) {
+          case "hvac/mode":
+            var m = message.toString();
+            $("#cool").removeClass("disabled");
+            $("#heat").removeClass("disabled");
+            $("#off").removeClass("disabled");
+            if (m === "cool") $("#cool").addClass("disabled");
+            else if (m === "heat") $("#heat").addClass("disabled");
+            else if (m === "off") $("#off").addClass("disabled");
+            break;
           case "hvac/state":
-            $("#state").html("<p>" + message.toString() + "</p>")
-            if (message.toString().includes("Heat")) {
-              $("#cool").removeClass("disabled")
-              $("#heat").addClass("disabled")
-              $("#off").removeClass("disabled")
-              $("#auto").removeClass("disabled")
+            $("#state").html("<p>" + message.toString() + "</p>");
+            var s = message.toString();
+            if (s.includes("Heat")) {
+              $("#cool").removeClass("disabled");
+              $("#heat").addClass("disabled");
+              $("#off").removeClass("disabled");
+            } else if (s.includes("Cool")) {
+              $("#heat").removeClass("disabled");
+              $("#cool").addClass("disabled");
+              $("#off").removeClass("disabled");
+            } else if (s.includes("Off")) {
+              $("#heat").removeClass("disabled");
+              $("#cool").removeClass("disabled");
+              $("#off").addClass("disabled");
             }
-            if (message.toString().includes("Cool")) {
-              $("#heat").removeClass("disabled")
-              $("#cool").addClass("disabled")
-              $("#off").removeClass("disabled")
-              $("#auto").removeClass("disabled")
-            }
-            if (message.toString().includes("Off")) {
-              $("#heat").removeClass("disabled")
-              $("#cool").removeClass("disabled")
-              $("#off").addClass("disabled")
-              $("#auto").removeClass("disabled")
-            }
-            if (message.toString().includes("Auto")) {
-              $("#heat").removeClass("disabled")
-              $("#cool").removeClass("disabled")
-              $("#off").removeClass("disabled")
-              $("#auto").addClass("disabled")
-            }
-            break
+            break;
           case "hvac/controlTempF":
             $("#temp").html("<h1 class=\"cover-heading\">" + parseFloat(message.toString()).toFixed(1) + " F</h1>")
             timer = 0
@@ -244,10 +243,7 @@
         $("#off").addClass("disabled")
       })
 
-      $("#auto").click(function () {
-        client.publish("hvac/mode", "auto")
-        $("#auto").addClass("disabled")
-      })
+
 
     })
   </script>
