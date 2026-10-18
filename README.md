@@ -86,3 +86,7 @@ null gap markers break temperature/humidity chart lines across missing samples;
 they are not stored as measurements. Aggregate gaps indicate missing buckets,
 not missing individual readings within an existing bucket. API response names and
 counter values remain compatible with the existing chart clients.
+
+Dashboard data requests use the current HTTP host/port, and browser MQTT clients
+use the current hostname on port 9001. The overview scrolls and adapts its column
+count to the available width, including the narrow in-app browser panel.

@@ -115,7 +115,7 @@ $(function () {
         }
     });
 
-    var client = mqtt.connect("ws://kmitchel.ddns.net:9001")
+    var client = mqtt.connect("ws://" + window.location.hostname + ":9001")
 
     function receiveMessage(topic, message) {
         if (chart.series.length > 0) {

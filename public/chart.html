@@ -352,12 +352,14 @@
         .overview-grid {
             flex: 1;
             display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            grid-template-rows: repeat(2, 1fr);
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+            grid-auto-rows: 190px;
+            align-content: start;
             gap: 12px;
             padding: 14px;
-            overflow: hidden;
+            overflow-y: auto;
             min-width: 0;
+            min-height: 0;
         }
 
         .overview-card {
@@ -379,8 +381,9 @@
 
         .overview-card-header {
             display: flex;
-            align-items: center;
-            justify-content: space-between;
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 6px;
             margin-bottom: 6px;
             flex-shrink: 0;
         }
@@ -771,6 +774,19 @@
         ::-webkit-scrollbar-thumb:hover {
             background: #404040;
         }
+        @media (max-width: 760px) {
+            #action-bar { width: 42px; padding: 12px 0; }
+            #sidebar { width: 145px; }
+            .sb-header { padding: 12px 8px; }
+            .sb-header h1 { font-size: 13px; }
+            .sb-topic { padding-left: 8px; padding-right: 8px; }
+            .sb-group-label { padding-left: 8px; padding-right: 8px; }
+            .overview-grid { padding: 8px; gap: 8px; }
+            .toolbar { padding: 8px; gap: 4px; }
+            .tb-title { width: 100%; }
+            .status-bar { flex-wrap: wrap; padding: 6px 8px; gap: 4px 10px; }
+            #st-text { flex-basis: calc(100% - 20px); }
+        }
     </style>
 <link rel="stylesheet" href="sensor-status.css">
 <script src="js/sensor-status.js" defer></script>
@@ -989,7 +1005,7 @@
         // =============================================
         // CONFIG
         // =============================================
-        const API_BASE = 'http://falcon';
+        const API_BASE = ''; // Use this dashboard's host and port.
 
         // =============================================
         // STATE
@@ -1708,7 +1724,7 @@
         // HVAC CONTROL (MQTT WebSocket)
         // =============================================
         let mqttClient = null;
-        const MQTT_BROKER = 'ws://falcon:9001';
+        const MQTT_BROKER = 'ws://' + window.location.hostname + ':9001';
         const hvacState = {
             heatSet: 68, coolSet: 70,
             heatOnOffset: 0.25, heatOffOffset: 0.25,
