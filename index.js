@@ -207,47 +207,12 @@ let leveldb = require("level")("./hemdb", {
     valueEncoding: "json"
 })
 
-app.get("/data/:collection/:past", function (req, res) {
-    let collectionName
-    let past
-
-    if ("collection" in req.params) {
-        collectionName = req.params.collection
-    }
-
-    if ("past" in req.params) {
-        past = req.params.past
-    } else {
-        past = "01"
-    }
-
-    let out = []
-    let index = 0
-
-    if (past == "0") {
-        past = ""
-    } else {
-        past = Date.now() - Number(past) * 60 * 60 * 1000
-    }
-
-    leveldb.createReadStream({ gt: collectionName + "-00-" + past, lt: collectionName + "-00." })
-        .on("data", function (data) {
-            let t = data.key.split("-")[3]
-            out[index] = [Number(t), data.value]
-            index++
-        })
-        .on("end", function () {
-            if (collectionName == "water-GPM") {
-                res.json([{
-                    data: out,
-                    type: "bar"
-                }])
-            } else {
-                res.json([{
-                    data: out
-                }])
-            }
-        })
+const { createMeasurements, registry } = require("./measurements")
+const measurements = createMeasurements()
+require("./data-api").registerDataRoutes(app, leveldb)
+app.get("/api/sensors", function (req, res) {
+    res.setHeader("Cache-Control", "no-store")
+    res.json(measurements.snapshot())
 })
 
 app.get("/dump/:collection", function (req, res) {
@@ -272,59 +237,6 @@ app.get("/histogram", function (req, res) {
         })
 })
 
-app.get("/data/:collection/:time/:past", function (req, res) {
-    let collectionName
-    if ("collection" in req.params && "time" in req.params) {
-        collectionName = req.params.collection + "-" + req.params.time
-    }
-
-    if ("past" in req.params) {
-        past = req.params.past
-    } else {
-        past = "01"
-    }
-
-    if (past == "0") {
-        past = ""
-    } else {
-        past = Date.now() - Number(past) * 60 * 60 * 1000
-    }
-
-    if (req.params.collection === "power-kWh" || req.params.collection === "water-Gal" || req.params.collection === "hvac-heat" || req.params.collection === "hvac-cool") {
-
-        let out = []
-        leveldb.createReadStream({ gt: collectionName + "-" + past, lt: collectionName + "." })
-            .on("data", function (data) {
-                let t = data.key.split("-")[3]
-                out.push([Number(t), data.value])
-            })
-            .on("end", function () {
-                res.json([{
-                    data: out
-                }])
-            })
-    } else {
-        let range = []
-        let avg = []
-        leveldb.createReadStream({ gt: collectionName + "-" + past, lt: collectionName + "." })
-            .on("data", function (data) {
-                let t = data.key.split("-")[3]
-                range.push([Number(t), data.value[2], data.value[3]])
-                avg.push([Number(t), Number((data.value[1] / data.value[0]).toFixed(2))])
-            })
-            .on("end", function () {
-                res.json([{
-                    name: "Min-Max",
-                    data: range,
-                    type: "arearange"
-                }, {
-                    name: "Avg",
-                    data: avg
-                }])
-            })
-    }
-})
-
 app.use(express.static(__dirname + "/public"))
 
 let mqtt = require("mqtt")
@@ -333,13 +245,21 @@ let client = mqtt.connect("mqtt://localhost", {
 })
 
 client.on("connect", function () {
-    client.subscribe("#")
+    client.subscribe([
+        ...registry.entries.map(entry => entry.topic),
+        "hvac/state", "hvac/tempSource",
+        ...Object.keys(registry.roomLabels).flatMap(room =>
+            ["status", "ip", "rssi", "espnow"].map(field => "sensor/" + room + "/" + field))
+    ])
 })
 
 let outsideTemp = null
 let lastControlTempUpdate = 0
 
-client.on("message", function (topic, message) {
+client.on("message", function (topic, message, packet = {}) {
+    const accepted = measurements.receive(topic, message, Date.now(), packet)
+    if (topic !== "hvac/state" && !accepted) return
+    if (topic === "hvac/state" && packet.retain) return
     switch (topic) {
         case "power/W":
             child.stdin.write("update " + __dirname + "/hem-w.rrd N:" + Number(message.toString()) + "\n")
@@ -409,58 +329,47 @@ client.on("message", function (topic, message) {
             } else {
                 child.stdin.write("update " + __dirname + "/hem-cool.rrd N:0\n")
             }
-            currentState = message.toString()
             break
     }
 
-    topic = topic.split("/").join("-")
+    const collection = accepted ? accepted.entry.collection : null
+    if (accepted && accepted.entry.archive !== false) {
+        insertNow(leveldb, collection, accepted.value)
+        insertAvg(leveldb, collection, accepted.value)
+    }
 
-    if (topic.indexOf("hvac-state") > -1) {
-        if (message.toString() == "Cooling" || message.toString() == "CoolOn") {
+    if (topic === "hvac/state") {
+        if (message.toString() === "Cooling" || message.toString() === "CoolOn") {
             updateCnt(leveldb, "hvac-cool", 0.25)
-        } else if (message.toString() == "Heating" || message.toString() == "HeatOn") {
+        } else if (message.toString() === "Heating" || message.toString() === "HeatOn") {
             updateCnt(leveldb, "hvac-heat", 0.25)
         }
-        let key = "hvac-cool-28-" + getMonthBucket()
-        leveldb.get(key, function (error, data) {
-            if (!error || typeof data === "number") {
-                client.publish("hvac/coolTime", data.toFixed(2))
-            }
-        })
-        key = "hvac-heat-28-" + getMonthBucket()
-        leveldb.get(key, function (error, data) {
-            if (!error || typeof data === "number") {
-                client.publish("hvac/heatTime", data.toFixed(2))
-            }
-        })
-    } else if (topic.indexOf("power-W") > -1) {
-        let now = (performance.timeOrigin + performance.now());
-        if (lastPulseTime[topic]) {
-            updateHistogram(leveldb, topic + "-delta", now - lastPulseTime[topic]);
+        for (const mode of ["cool", "heat"]) {
+            leveldb.get("hvac-" + mode + "-28-" + getMonthBucket(), function (error, data) {
+                if (!error && typeof data === "number" && Number.isFinite(data)) {
+                    client.publish("hvac/" + mode + "Time", data.toFixed(2))
+                }
+            })
         }
-        lastPulseTime[topic] = now;
-        insertNow(leveldb, topic, message)
-        insertAvg(leveldb, topic, message)
+    } else if (accepted.entry.kind === "power") {
+        const now = performance.timeOrigin + performance.now()
+        if (lastPulseTime[collection]) {
+            updateHistogram(leveldb, collection + "-delta", now - lastPulseTime[collection])
+        }
+        lastPulseTime[collection] = now
         updateCnt(leveldb, "power-kWh", 0.001)
-        let key = "power-kWh-28-" + getMonthBucket()
-        leveldb.get(key, function (error, data) {
-            if (!error || typeof data === "number") {
+        leveldb.get("power-kWh-28-" + getMonthBucket(), function (error, data) {
+            if (!error && typeof data === "number" && Number.isFinite(data)) {
                 client.publish("power/kWh", data.toFixed(3))
             }
         })
-    } else if (topic.indexOf("water-GPM") > -1) {
-        insertNow(leveldb, topic, message)
-        insertAvg(leveldb, topic, message)
+    } else if (accepted.entry.kind === "water") {
         updateCnt(leveldb, "water-Gal", 0.25)
-        let key = "water-Gal-28-" + getMonthBucket()
-        leveldb.get(key, function (error, data) {
-            if (!error || typeof data === "number") {
+        leveldb.get("water-Gal-28-" + getMonthBucket(), function (error, data) {
+            if (!error && typeof data === "number" && Number.isFinite(data)) {
                 client.publish("water/Gal", data.toFixed(2))
             }
         })
-    } else if (topic.indexOf("temp-") > -1) {
-        insertNow(leveldb, topic, message)
-        insertAvg(leveldb, topic, message)
     }
 })
 

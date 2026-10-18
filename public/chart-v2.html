@@ -5,6 +5,8 @@
     <title>Home Energy Management | Premium</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="css/chart-v2.css">
+<link rel="stylesheet" href="sensor-status.css">
+<script src="js/sensor-status.js" defer></script>
 </head>
 <body>
     <div id="app">
@@ -18,9 +20,20 @@
                     <button data-type='power-W' class='selected' data-title='Electricity Consumption Rate' data-unit='W'>W</button>
                     <button data-type='water-Gal' data-title='Water Consumption' data-unit='Gal'>Gal</button>
                     <button data-type='water-GPM' data-title='Water Consumption Rate' data-unit='GPM'>GPM</button>
-                    <button data-type='temp-room1-tempF' data-title='Inside Temperature' data-unit='F'>Inside Temp</button>
-                    <button data-type='temp-room1-dewF' data-title='Inside Dew Point' data-unit='F'>Inside Dew</button>
-                    <button data-type='temp-room1-rh' data-title='Inside Relative Humidity' data-unit='%'>Inside RH</button>
+                    <button data-type="temp-room1-tempF" data-title="room1 temperature" data-unit="F">room1 temperature</button>
+                    <button data-type="temp-room1-rh" data-title="room1 humidity" data-unit="%">room1 humidity</button>
+                    <button data-type="temp-room1-dewF" data-title="room1 dew point" data-unit="F">room1 dew point</button>
+                    <button data-type="temp-room2-tempF" data-title="room2 temperature" data-unit="F">room2 temperature</button>
+                    <button data-type="temp-room2-rh" data-title="room2 humidity" data-unit="%">room2 humidity</button>
+                    <button data-type="temp-room2-dewF" data-title="room2 dew point" data-unit="F">room2 dew point</button>
+                    <button data-type="temp-room3-tempF" data-title="room3 temperature" data-unit="F">room3 temperature</button>
+                    <button data-type="temp-room3-rh" data-title="room3 humidity" data-unit="%">room3 humidity</button>
+                    <button data-type="temp-room3-dewF" data-title="room3 dew point" data-unit="F">room3 dew point</button>
+                    <button data-type="temp-284a046d4c2001a3" data-title="Outside" data-unit="F">Outside</button>
+                    <button data-type="temp-2809853f030000a7" data-title="Upper water heater" data-unit="F">Upper water heater</button>
+                    <button data-type="temp-2813513f03000072" data-title="Lower water heater" data-unit="F">Lower water heater</button>
+                    <button data-type="temp-289fa756b5013c68" data-title="AC high side - awaiting replacement" data-unit="F">AC high side - awaiting replacement</button>
+                    <button data-type="temp-2874913c46200105" data-title="AC low side - awaiting replacement" data-unit="F">AC low side - awaiting replacement</button>
                     <button data-type="histogram">Histogram</button>
                 </div>
 

@@ -23,6 +23,8 @@
       <script src="https://oss.maxcdn.com/html5shiv/3.7.2/html5shiv.min.js"></script>
       <script src="https://oss.maxcdn.com/respond/1.4.2/respond.min.js"></script>
     <![endif]-->
+<link rel="stylesheet" href="sensor-status.css">
+<script src="js/sensor-status.js" defer></script>
 </head>
 
 <body>
@@ -154,12 +156,6 @@
             break
           case "hvac/tempSource":
             $("#source").html("<p style='color:#a0aec0;font-size:0.85em;margin:0;'>Source: " + message.toString() + "</p>")
-            break
-          case "temp/room1/tempF":
-            if (!temp["hvac/controlTempF"]) {
-              $("#temp").html("<h1 class=\"cover-heading\">" + parseFloat(message.toString()).toFixed(1) + " F</h1>")
-              timer = 0
-            }
             break
           case "temp/room1/rh":
             $("#rh").html("<p>Humidity: " + message.toString() + " %</p>")

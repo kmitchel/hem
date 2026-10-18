@@ -52,9 +52,11 @@ async function run() {
         const gate = new Promise(resolve => { release = resolve; });
         const scheduledDb = {
             open: async () => { opens++; if (opens === 1) { await gate; throw new Error('open failed'); } },
-            iterator: (...args) => db.iterator(...args),
-            createKeyStream: (...args) => db.createKeyStream(...args),
-            batch: (...args) => db.batch(...args)
+            // Scheduling does not need native DB handles. Keep this empty
+            // fixture isolated so interval retries cannot race db.close().
+            iterator: () => ({ next: cb => cb(null, undefined), end: cb => cb(null) }),
+            createKeyStream: () => { throw new Error('Empty scheduler fixture must not scan'); },
+            batch: async () => {}
         };
         const timer = startRetention(scheduledDb, { ...options, intervalMs: 5, logError: () => errors++ });
         try {

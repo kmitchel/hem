@@ -28,6 +28,8 @@
     }
 
     .container {
+      overflow-y: auto;
+      min-height: 0;
       max-width: 600px;
       margin: 0 auto;
       padding: 20px;
@@ -233,6 +235,8 @@
     .toast.visible { bottom: 20px; }
 
   </style>
+<link rel="stylesheet" href="sensor-status.css">
+<script src="js/sensor-status.js" defer></script>
 </head>
 <body>
 
@@ -249,6 +253,7 @@
 
     <div class="temp-display">
       <div class="current-temp" id="currentTemp">--<span class="temp-unit">°F</span></div>
+      <div style="font-size:12px;text-align:center">Controller temperature · Source: <span id="hem-control-source">Unavailable</span></div>
       <div class="temp-meta">
         <div class="temp-meta-item">
           <!-- Outdoor Icon -->
@@ -393,7 +398,7 @@
         mode.receive(topic, msgBuffer.toString(), packet);
         const value = msgBuffer.toString();
 
-        if (topic === "temp/room1/tempF") {
+        if (topic === "hvac/controlTempF") {
           const t = parseFloat(value).toFixed(1);
           els.currentTemp.innerHTML = `${t}<span class="temp-unit">°F</span>`;
         } else if (topic === "temp/room1/rh") {

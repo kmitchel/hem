@@ -53,6 +53,8 @@
     }
 
     .container {
+      overflow-y: auto;
+      min-height: 0;
       flex: 1;
       display: flex;
       flex-direction: column;
@@ -394,6 +396,8 @@
       }
     }
   </style>
+<link rel="stylesheet" href="sensor-status.css">
+<script src="js/sensor-status.js" defer></script>
 </head>
 
 <body>
@@ -410,6 +414,7 @@
 
     <div class="temp-display">
       <div class="current-temp" id="currentTemp">--<span class="temp-unit">°F</span></div>
+      <div style="font-size:12px;text-align:center">Controller temperature · Source: <span id="hem-control-source">Unavailable</span></div>
       <div class="temp-meta">
         <div class="temp-meta-item">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -516,7 +521,7 @@
         switch (topic) {
           case "hvac/modeState":
             break;
-          case "temp/room1/tempF":
+          case "hvac/controlTempF":
             $("#currentTemp").html(`${parseFloat(value).toFixed(1)}<span class="temp-unit">°F</span>`);
             break;
           case "temp/room1/rh":

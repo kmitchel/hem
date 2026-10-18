@@ -772,6 +772,8 @@
             background: #404040;
         }
     </style>
+<link rel="stylesheet" href="sensor-status.css">
+<script src="js/sensor-status.js" defer></script>
 </head>
 
 <body>
@@ -876,8 +878,9 @@
                         <span class="hvac-stat-value" id="hvac-state">—</span>
                     </div>
                     <div class="hvac-stat">
-                        <span class="hvac-stat-label">Temperature</span>
+                        <span class="hvac-stat-label">Controller temperature</span>
                         <span class="hvac-stat-value" id="hvac-temp">—</span>
+                        <span id="hvac-source" style="font-size:12px">Unavailable</span>
                     </div>
                     <div class="hvac-stat">
                         <span class="hvac-stat-label">Heartbeat</span>
@@ -996,6 +999,7 @@
         let activeInterval = '00';
         let chart = null;
         let overviewCharts = [];
+        let latestSensorSnapshot = null;
 
         // =============================================
         // TOPIC DEFINITIONS
@@ -1013,17 +1017,20 @@
                     { id: 'water-GPM', label: 'Flow Rate', unit: 'GPM', title: 'Water Consumption Rate', chartType: 'line' },
                 ]
             },
+            ...[
+                ['room1', 'Room 1 · Front bedroom'],
+                ['room2', 'Room 2 · Kitchen / middle'],
+                ['room3', 'Room 3 · Rear bedroom'],
+            ].map(([room, group]) => ({
+                group, color: 'var(--color-climate)', items: [
+                    { id: `temp-${room}-tempF`, label: 'Temperature', unit: '°F', title: `${group} temperature` },
+                    { id: `temp-${room}-rh`, label: 'Humidity', unit: '%', title: `${group} humidity` },
+                    { id: `temp-${room}-dewF`, label: 'Dew Point', unit: '°F', title: `${group} dew point` },
+                ]
+            })),
             {
-                group: 'Climate', color: 'var(--color-climate)', items: [
-                    {
-                        id: 'climate-temps', label: 'Temperatures', unit: '°F', title: 'Climate Temperatures',
-                        collections: [
-                            { id: 'temp-room1-tempF', name: 'Room 1' },
-                            { id: 'temp-room1-dewF', name: 'Room 1 Dew Point' },
-                            { id: 'temp-284a046d4c2001a3', name: 'Outside' },
-                        ]
-                    },
-                    { id: 'temp-room1-rh', label: 'Humidity', unit: '%', title: 'Room 1 Relative Humidity' },
+                group: 'Outside', color: 'var(--color-climate)', items: [
+                    { id: 'temp-284a046d4c2001a3', label: 'Temperature', unit: '°F', title: 'Outside temperature' },
                 ]
             },
             {
@@ -1040,7 +1047,7 @@
             {
                 group: 'HVAC', color: 'var(--color-hvac)', items: [
                     {
-                        id: 'hvac-temps', label: 'AC Temps', unit: '°F', title: 'AC Temperatures',
+                        id: 'hvac-temps', label: 'AC · Awaiting replacement', unit: '°F', title: 'AC Temperatures · Awaiting replacement',
                         collections: [
                             { id: 'temp-289fa756b5013c68', name: 'High Side' },
                             { id: 'temp-2874913c46200105', name: 'Low Side' },
@@ -1214,7 +1221,7 @@
                 dot.className = 'st-dot';
                 dot.style.background = resolveColor(meta.color);
                 dot.style.boxShadow = `0 0 8px ${resolveColor(meta.color)}`;
-                text.textContent = meta.title;
+                text.textContent = total ? meta.title : meta.title + ' · No readings in this range';
                 points.textContent = `${total.toLocaleString()} pts`;
                 if (tMin < Infinity) {
                     const d1 = new Date(tMin).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -1408,6 +1415,7 @@
                     responsive: true,
                     maintainAspectRatio: false,
                     animation: false,
+                    spanGaps: false,
                     interaction: {
                         mode: 'nearest',
                         axis: 'x',
@@ -1530,16 +1538,41 @@
                     items.push({
                         id: t.id,
                         fetchId: fetchId,
-                        label: t.label,
+                        label: g.group + ' · ' + t.label,
                         unit: t.unit,
                         title: t.title,
                         color: g.color,
                         chartType: t.chartType || 'line',
+                        noRaw: Boolean(t.noRaw),
                     });
                 });
             });
             return items;
         }
+
+        function updateOverviewAvailability() {
+            if (!latestSensorSnapshot) return;
+            document.querySelectorAll('.overview-card').forEach(card => {
+                const meta = getMeta(card.dataset.topicId);
+                const collection = meta.collections ? meta.collections[0].id : meta.id;
+                const sensor = latestSensorSnapshot.sensors.find(item => item.collection === collection);
+                const status = card.querySelector('.overview-reading-status');
+                if (!sensor) { status.textContent = ''; return; }
+                const label = sensor.availability === 'awaiting-replacement' ? 'Awaiting replacement' :
+                    sensor.availability === 'online' ? 'Online' : 'Unavailable';
+                status.textContent = label + (sensor.receivedAt ? ' · Last received ' + new Date(sensor.receivedAt).toLocaleTimeString() : ' · No reading since startup');
+                const value = card.querySelector('.overview-card-value');
+                value.style.fontSize = sensor.availability === 'online' ? '' : '12px';
+                if (sensor.availability === 'online') {
+                    const unit = document.createElement('span'); unit.className = 'overview-card-unit'; unit.textContent = sensor.unit;
+                    value.replaceChildren(document.createTextNode(sensor.value.toFixed(1)), unit);
+                } else value.textContent = label;
+            });
+        }
+        document.addEventListener('hem-sensors', event => {
+            latestSensorSnapshot = event.detail;
+            updateOverviewAvailability();
+        });
 
         function destroyOverviewCharts() {
             overviewCharts.forEach(c => c.destroy());
@@ -1588,29 +1621,38 @@
                             <span style="color:var(--text-muted);font-size:11px;">…</span>
                         </span>
                     </div>
+                    <div class="overview-reading-status" style="font-size:11px;color:var(--text-muted);padding:0 16px 4px">Checking availability...</div>
                     <div class="overview-card-chart">
                         <canvas id="ov-chart-${i}"></canvas>
                     </div>
                 </div>
             `).join('');
 
+            updateOverviewAvailability();
+
             // Fetch and render each sparkline
             items.forEach(async (t, i) => {
                 try {
-                    const url = `${API_BASE}/data/${t.fetchId}/01`;
+                    const url = buildUrl(t.fetchId, t.noRaw ? '01' : '00', '01');
                     const res = await fetch(url);
                     if (!res.ok) throw new Error(`HTTP ${res.status}`);
                     const series = await res.json();
 
                     // Get last value
                     const rawData = series[0];
-                    if (!rawData || !rawData.data || !rawData.data.length) return;
+                    if (!rawData || !rawData.data || !rawData.data.length) {
+                        const empty = document.getElementById(`ov-val-${i}`);
+                        if (empty) empty.textContent = 'No recent readings';
+                        updateOverviewAvailability();
+                        return;
+                    }
                     const lastVal = rawData.data[rawData.data.length - 1][1];
                     const valEl = document.getElementById(`ov-val-${i}`);
                     if (valEl) {
                         valEl.innerHTML = `${Number(lastVal).toFixed(1)}<span class="overview-card-unit">${t.unit}</span>`;
                     }
 
+                    updateOverviewAvailability();
                     // Resolve color
                     const color = resolveColor(t.color);
                     const [r, g, b] = hexToRgb(color);
@@ -1637,6 +1679,7 @@
                             responsive: true,
                             maintainAspectRatio: false,
                             animation: false,
+                            spanGaps: false,
                             plugins: {
                                 legend: { display: false },
                                 tooltip: { enabled: false },
@@ -1712,7 +1755,7 @@
                     el.textContent = 'Online';
                     el.className = 'hvac-stat-value connected';
                     modeTracker.connect();
-                    mqttClient.subscribe(['hvac/#', 'temp/room1/tempF'], (err) => {
+                    mqttClient.subscribe(['hvac/#'], (err) => {
                         if (err) { modeTracker.disconnect(); return; }
                         mqttClient.publish('hvac/mode', '?');
                     });
@@ -1751,9 +1794,13 @@
                             else if (val.includes('Cool')) el.classList.add('cooling');
                             break;
                         }
-                        case 'temp/room1/tempF': {
+                        case 'hvac/controlTempF': {
                             hvacState.temp = parseFloat(val).toFixed(1);
                             document.getElementById('hvac-temp').textContent = hvacState.temp + '°F';
+                            break;
+                        }
+                        case 'hvac/tempSource': {
+                            document.getElementById('hvac-source').textContent = val;
                             break;
                         }
                         case 'hvac/heatSet': {

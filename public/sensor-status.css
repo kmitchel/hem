@@ -1,0 +1,7 @@
+.hem-sensor-status { box-sizing: border-box; flex: 0 0 auto; width: 100%; margin: 8px 0; border: 1px solid #667085; border-radius: 8px; padding: 8px 12px; font: 12px/1.5 system-ui, sans-serif; text-align: left; color: inherit; }
+#main > .hem-sensor-status { width: calc(100% - 24px); margin: 8px 12px; }
+.hem-sensor-status summary { cursor: pointer; font-weight: 600; }
+.hem-sensor-status-content { max-height: 28vh; overflow: auto; }
+.hem-sensor-status table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.hem-sensor-status th, .hem-sensor-status td { padding: 6px 8px; border-bottom: 1px solid #667085; text-align: left; vertical-align: top; }
+.hem-sensor-status th { white-space: nowrap; }
