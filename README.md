@@ -90,3 +90,91 @@ counter values remain compatible with the existing chart clients.
 Dashboard data requests use the current HTTP host/port, and browser MQTT clients
 use the current hostname on port 9001. The overview scrolls and adapts its column
 count to the available width, including the narrow in-app browser panel.
+
+## RRD graph storage and rebuilding
+
+The classic `/graph/:id` PNG graphs keep their existing styles and filenames.
+Their RRDs use a 30-second GAUGE base step and a 60-second heartbeat:
+
+| Resolution | Rows | Retention |
+|---|---:|---|
+| 30 seconds | 5,760 | 48 hours |
+| 1 minute | 43,200 | 30 days |
+| 5 minutes | 25,920 | 90 days |
+| 15 minutes | 35,040 | 365 days |
+| 1 hour | 26,280 | 1,095 days |
+
+All series have AVERAGE archives. Power, temperature, dew point and humidity
+also have MIN/MAX archives. Graphs continue to display averages. Current bounds
+match the measurement registry: room/control -4..140 F, dew -148..140 F,
+outside/water-heater/AC -67..257 F, humidity 0..100%, power 0..100,000 W,
+water 0..1,000 GPM, HVAC 0..100%. Longer heartbeat values are not used to conceal
+event-driven collection gaps. The water sensor publishes only during flow, so
+water graphs display silence as zero GPM; other graphs retain unknown gaps.
+
+The overview's third graph group offers 4 days, 1 week, 30 days, 90 days, 1 year
+or 3 years. These are also available as `start=96h`, `7d`, `30d`, `90d`, `365d`
+or `3y` on the existing graph URLs. Rendering steps match available tiers and
+the width of the graph.
+
+`./createrrd.sh NEW_DIRECTORY` creates empty files in a new directory only;
+it refuses an existing destination instead of erasing live history. Python 3,
+RRDtool and the existing Node dependencies are required for rebuilding.
+
+Before rebuilding, make a consistent backup of LevelDB and every RRD while HEM
+is stopped or frozen, plus the source/Git history and systemd unit. Never open
+the live LevelDB or the only backup with an offline tool. Export a separate
+writable copy, then build replacement files alongside the originals:
+
+```sh
+node export-rrd-history.js /path/to/offline-leveldb-copy /path/to/new-export
+python3 rrd-rebuild.py --originals /path/to/original-rrds \
+  --export /path/to/new-export --output /path/to/new-replacements \
+  --as-of SNAPSHOT_EPOCH_SECONDS
+```
+
+The snapshot epoch must be at least the newest source RRD update. Rebuilds
+preserve known existing RRD averages ahead of LevelDB's differently weighted
+sample means. LevelDB bucket starts become RRD bucket ends. Raw samples supply
+30-second buckets; matching 1m/5m/15m/1h aggregates supply older history. Missing
+or out-of-range values remain unknown. Original archives are rebinned into
+equal or coarser target intervals using duration-weighted overlap and xff=0.5;
+this is an approximation where the old and new bucket boundaries differ.
+Coarse data is never expanded into purported finer observations.
+
+Indoor control temperature has no LevelDB backfill: only existing RRD history
+is carried forward. Outside history combines older unsmoothed LevelDB samples
+with recent smoothed RRD output. HVAC LevelDB minute counters become approximate
+runtime percentages; absent counters remain unknown, and recent RRD state
+values take precedence. Historical MIN/MAX use LevelDB observed sample extrema;
+future MIN/MAX summarize 30-second PDPs, so spikes shorter than the base step
+may be attenuated. Historical RRD averages do not fabricate MIN/MAX values.
+Old AC fine detail outside the new windows remains in the untouched backup;
+hourly AC aggregates still fit the new three-year archives.
+
+The rebuild writes `rebuild-summary.json` with populated rows and source counts.
+Verify candidates with `rrdtool info`, `fetch`, representative graphs and tests
+before stopping the service. During the short switch, save a final copy of the
+old RRDs, then catch up replacements from those files:
+
+```sh
+python3 rrd-rebuild.py --catch-up --originals /path/to/final-old-rrds \
+  --output /path/to/new-replacements
+```
+
+Catch-up replays completed 30-second PDP averages, corrects the first partially
+accumulated PDP, and carries the final partial PDP. Extrema during this short
+bridge describe 30-second means, not original sample peaks. Finish within the
+old 8h32m fine archive, otherwise take a newer snapshot and rebuild. Copy the
+verified files into place with ownership `hem:hem`, restart HEM, check graph
+responses and confirm timestamps advance on actively publishing series.
+
+For rollback, stop HEM, preserve the replacement files, restore all twelve RRDs
+from the consistent final-old copy (or initial backup), set ownership `hem:hem`,
+and start HEM. The new graph endpoints work with either archive layout. Restore
+source files from the source/Git backup as well if reverting code. Do not restore
+an old LevelDB over the live database merely to roll back RRDs.
+
+Verification: `npm test` includes Python migration tests for missing buckets,
+mixed grids, timestamp conversion, runtime counters, and continued PDP/CDP
+updates after restoration and catch-up, plus graph-range and zero-flow-rendering tests.

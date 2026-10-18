@@ -33,9 +33,23 @@ function graph(req, res) {
     arg.push("VRULE:" + Math.round(times.solarNoon.getTime() / 1000) + "#ff0000")
     arg.push("VRULE:" + Math.round(times.sunset.getTime() / 1000) + "#00a5ff")
 
+    // Explicit steps suit both the retained tiers and the graph's pixel width.
+    const graphSteps = { "12h": 60, "24h": 300, "48h": 300, "96h": 900,
+        "7d": 900, "30d": 3600, "90d": 3600, "365d": 3600, "3y": 3600 }
+    arg.push("--step", String(graphSteps[req.query.start] || 30))
     if ("start" in req.query) {
         let now = new Date()
         switch (req.query.start) {
+            case "7d":
+            case "30d":
+            case "90d":
+            case "365d":
+            case "3y": {
+                const periods = { "7d": "7days", "30d": "30days", "90d": "90days",
+                    "365d": "365days", "3y": "1095days" }
+                arg.push("-s", "now-" + periods[req.query.start])
+                break
+            }
             case "1h":
                 arg.push("-s")
                 arg.push("now-1hour")
@@ -174,6 +188,7 @@ function graph(req, res) {
             break
         case "gpm":
             arg.push("DEF:gpm=" + __dirname + "/hem-gpm.rrd:gpm:AVERAGE")
+            // This sensor publishes only during flow: silence represents zero GPM.
             arg.push("CDEF:fixgpm=gpm,UN,0,gpm,IF")
             arg.push("LINE1:fixgpm#000000:GPM")
             break

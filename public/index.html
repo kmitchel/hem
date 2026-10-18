@@ -39,6 +39,13 @@
     <img id="ac24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
     <img id="wh24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
     <img id="gpm24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
+    <p><label for="rrd-history">History:</label>
+        <select id="rrd-history">
+            <option value="96h">4 days</option><option value="7d">1 week</option>
+            <option value="30d">30 days</option><option value="90d">90 days</option>
+            <option value="365d">1 year</option><option value="3y">3 years</option>
+        </select>
+    </p>
     <img id="watt96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
     <img id="temp96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
     <img id="ac96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
@@ -59,7 +66,7 @@
 
             const loadImg = (temp) => {
                 const graphs = ['watt', 'temp', 'ac', 'wh', 'gpm'];
-                const periods = { '2': '12h', '24': '48h', '96': '96h' };
+                const periods = { '2': '12h', '24': '48h', '96': document.getElementById('rrd-history').value };
 
                 Object.entries(periods).forEach(([suffix, startValue]) => {
                     graphs.forEach(type => {
@@ -67,6 +74,8 @@
                     });
                 });
             };
+
+            document.getElementById('rrd-history').addEventListener('change', () => loadImg(time()));
 
             // Initial load
             loadImg(time());
