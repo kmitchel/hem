@@ -532,28 +532,5 @@ function updateCnt(db, topic, incValue) {
     })
 }
 
-const intervalObj = setInterval(() => {
-    leveldb.createKeyStream()
-        .on("data", function (data) {
-            let split = data.split("-")
-            if (split[2] == "00") {
-                if (Number(split[3]) < Date.now() - 48 * 60 * 60 * 1000) {
-                    leveldb.del(data)
-                }
-            }
-        })
-
-}, 30 * 60 * 1000)
-
-
-//   const intObj = setInterval(() => {
-//     leveldb.createKeyStream()
-//     .on("data", function (data) {
-//         let split = data.split("-")
-//         if (split[0] == "test") {
-//                 console.log("Delete " + split[0] + " " + Number(split[3]))
-//                 leveldb.del(data)
-//         }
-//     })
-
-//   }, 5000)
+// Run at startup and every 30 minutes; see retention.js for the policy.
+const intervalObj = require("./retention").startRetention(leveldb)
