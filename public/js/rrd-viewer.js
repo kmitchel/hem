@@ -61,10 +61,12 @@
         document.querySelectorAll('.stream-card').forEach(card=>{
             const group=card.dataset.group;
             const isChecked=state.groups.includes(group);
-            const input=card.querySelector('input[type=checkbox]');
+            const isSelected=!isAll&&state.active===group;
+            const input=card.querySelector('input.stream-checkbox');
             if(input)input.checked=isChecked;
-            card.classList.toggle('disabled',!isChecked);
-            card.classList.toggle('active',!isAll&&state.active===group);
+            card.classList.toggle('unchecked',!isChecked);
+            card.classList.toggle('selected',isSelected);
+            card.classList.toggle('active',isSelected);
         });
 
         updateActiveCount();
@@ -83,7 +85,7 @@
             const check=$('group-'+group);
             if(check){
                 check.checked=state.groups.includes(group);
-                choice.classList.toggle('disabled',!check.checked);
+                choice.classList.toggle('disabled',!check.checked&&state.active!==group);
             }
             if(!isAll){
                 choice.style.display=(group===activeGroup)?'block':'none';
@@ -95,7 +97,7 @@
                     const input=$('trace-'+group+'-'+trace);
                     if(input){
                         input.checked=state.lines[group].includes(trace);
-                        input.disabled=!state.groups.includes(group);
+                        input.disabled=!state.groups.includes(group)&&state.active!==group;
                     }
                 }
             }
@@ -159,10 +161,10 @@
     }
 
     function visibleGroups(){
-        if(state.active&&state.active!=='all'&&state.groups.includes(state.active)){
+        if(state.active&&state.active!=='all'){
             return [state.active];
         }
-        return state.groups;
+        return state.groups.length?state.groups:(catalog&&Object.keys(catalog.groups).length?[Object.keys(catalog.groups)[0]]:['watt']);
     }
 
     function synchronizeCards(){
@@ -315,26 +317,34 @@
             apply();
         });
 
-        // Master stream selection & toggle
+        // Master stream checkbox toggle (Stack inclusion)
+        document.addEventListener('change',event=>{
+            if(!event.target.matches('.stream-checkbox'))return;
+            const group=event.target.dataset.group;
+            if(!group)return;
+            if(event.target.checked){
+                if(!state.groups.includes(group))state.groups.push(group);
+            }else{
+                if(state.groups.length<=1&&state.groups.includes(group)){
+                    event.target.checked=true;
+                    status('At least one stream must remain active in the stack.');
+                    return;
+                }
+                state.groups=state.groups.filter(g=>g!==group);
+            }
+            const inspectorCheck=$('group-'+group);
+            if(inspectorCheck)inspectorCheck.checked=event.target.checked;
+            apply();
+        });
+
+        // Master stream card selection (Focus / Inspector target)
         document.addEventListener('click',event=>{
+            if(event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
             const card=event.target.closest('.stream-card');
             if(!card)return;
             const group=card.dataset.group;
-            if(event.target.matches('input[type=checkbox]')){
-                // User clicked the checkbox to enable/disable group
-                if(event.target.checked){
-                    if(!state.groups.includes(group))state.groups.push(group);
-                }else{
-                    state.groups=state.groups.filter(g=>g!==group);
-                }
-                const inspectorCheck=$('group-'+group);
-                if(inspectorCheck)inspectorCheck.checked=event.target.checked;
-                apply();
-                return;
-            }
-            // User clicked card body -> focus this metric in detail pane
+            if(!group)return;
             state.active=group;
-            if(!state.groups.includes(group))state.groups.push(group);
             paint();
             render();
         });

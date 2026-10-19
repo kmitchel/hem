@@ -235,6 +235,7 @@ html, body {
     cursor: pointer;
     transition: all .15s ease;
     user-select: none;
+    position: relative;
 }
 
 .stream-card:hover {
@@ -242,10 +243,31 @@ html, body {
     border-color: var(--border-hover);
 }
 
+.stream-card.selected,
 .stream-card.active {
     background: var(--surface-elevated);
     border-color: var(--accent);
-    box-shadow: 0 0 8px var(--accent-glow);
+    box-shadow: 0 0 0 1px var(--accent), 0 0 10px var(--accent-glow);
+}
+
+.stream-card.selected::before,
+.stream-card.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    background: var(--accent);
+    border-radius: 0 2px 2px 0;
+}
+
+.stream-card.unchecked .stream-tag {
+    color: var(--rose);
+}
+
+.stream-card.unchecked .stream-live {
+    opacity: 0.75;
 }
 
 .stream-header {
@@ -254,7 +276,13 @@ html, body {
     gap: 8px;
 }
 
-.stream-check input[type=checkbox] {
+.stream-toggle-box {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+}
+
+.stream-checkbox {
     width: 14px;
     height: 14px;
     accent-color: var(--accent);

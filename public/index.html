@@ -52,14 +52,14 @@
 
             <div class="master-stream-list" id="master-stream-list">
                 <!-- Power & Energy -->
-                <div class="stream-card active" data-group="watt" id="stream-card-watt">
+                <div class="stream-card selected" data-group="watt" id="stream-card-watt">
                     <div class="stream-header">
-                        <label class="check stream-check" title="Toggle chart in view">
-                            <input type="checkbox" id="group-watt" data-stream="watt" checked>
+                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
+                            <input type="checkbox" id="stream-check-watt" class="stream-checkbox" data-group="watt" checked>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Power &amp; Energy</span>
-                            <span class="stream-tag">Watts</span>
+                            <span class="stream-tag" id="stream-tag-watt">Watts</span>
                         </div>
                     </div>
                     <div class="stream-live">
@@ -71,12 +71,12 @@
                 <!-- Climate & Humidity -->
                 <div class="stream-card" data-group="temp" id="stream-card-temp">
                     <div class="stream-header">
-                        <label class="check stream-check" title="Toggle chart in view">
-                            <input type="checkbox" id="group-temp" data-stream="temp" checked>
+                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
+                            <input type="checkbox" id="stream-check-temp" class="stream-checkbox" data-group="temp" checked>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Climate &amp; Comfort</span>
-                            <span class="stream-tag">°F / %</span>
+                            <span class="stream-tag" id="stream-tag-temp">°F / %</span>
                         </div>
                     </div>
                     <div class="stream-live">
@@ -90,12 +90,12 @@
                 <!-- Water Heater Tanks -->
                 <div class="stream-card" data-group="wh" id="stream-card-wh">
                     <div class="stream-header">
-                        <label class="check stream-check" title="Toggle chart in view">
-                            <input type="checkbox" id="group-wh" data-stream="wh" checked>
+                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
+                            <input type="checkbox" id="stream-check-wh" class="stream-checkbox" data-group="wh" checked>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Water Heater</span>
-                            <span class="stream-tag">°F</span>
+                            <span class="stream-tag" id="stream-tag-wh">°F</span>
                         </div>
                     </div>
                     <div class="stream-live">
@@ -107,12 +107,12 @@
                 <!-- Water Flow -->
                 <div class="stream-card" data-group="gpm" id="stream-card-gpm">
                     <div class="stream-header">
-                        <label class="check stream-check" title="Toggle chart in view">
-                            <input type="checkbox" id="group-gpm" data-stream="gpm" checked>
+                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
+                            <input type="checkbox" id="stream-check-gpm" class="stream-checkbox" data-group="gpm" checked>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Water Flow</span>
-                            <span class="stream-tag">GPM</span>
+                            <span class="stream-tag" id="stream-tag-gpm">GPM</span>
                         </div>
                     </div>
                     <div class="stream-live">
@@ -124,12 +124,12 @@
                 <!-- HVAC & AC Diagnostics -->
                 <div class="stream-card" data-group="ac" id="stream-card-ac">
                     <div class="stream-header">
-                        <label class="check stream-check" title="Toggle chart in view">
-                            <input type="checkbox" id="group-ac" data-stream="ac">
+                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
+                            <input type="checkbox" id="stream-check-ac" class="stream-checkbox" data-group="ac">
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">AC &amp; Heat Pump</span>
-                            <span class="stream-tag">Diagnostics</span>
+                            <span class="stream-tag" id="stream-tag-ac">Diagnostics</span>
                         </div>
                     </div>
                     <div class="stream-live">
