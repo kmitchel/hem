@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RRD History · Home Energy Monitor</title>
     <meta name="description" content="3-pane master/detail telemetry diagnostics for Home Energy Monitor.">
-    <link rel="stylesheet" href="rrd-viewer.css">
+    <link rel="stylesheet" href="rrd-viewer.css?v=2.1.0">
     <link rel="stylesheet" href="sensor-status.css">
-    <script src="js/rrd-viewer-state.js" defer></script>
-    <script src="js/rrd-viewer.js" defer></script>
+    <script src="js/rrd-viewer-state.js?v=2.1.0" defer></script>
+    <script src="js/rrd-viewer.js?v=2.1.0" defer></script>
     <script src="js/sensor-status.js" defer></script>
     <script src="js/mqtt.min.js" defer></script>
     <script src="js/rrd-live.js" defer></script>
@@ -47,15 +47,16 @@
         <aside id="pane-master" class="pane pane-master" aria-label="Metrics Master List">
             <div class="pane-header">
                 <span class="pane-title">Metrics &amp; Live Streams</span>
-                <span class="pane-badge" id="active-count-badge">4 active</span>
+                <span class="pane-badge" id="active-count-badge">4 in stack</span>
             </div>
 
             <div class="master-stream-list" id="master-stream-list">
                 <!-- Power & Energy -->
                 <div class="stream-card selected" data-group="watt" id="stream-card-watt">
                     <div class="stream-header">
-                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
-                            <input type="checkbox" id="stream-check-watt" class="stream-checkbox" data-group="watt" checked>
+                        <label class="stream-toggle-box" title="Include/exclude Power &amp; Energy in multi-chart stack">
+                            <input type="checkbox" id="stream-check-watt" class="stream-checkbox" data-group="watt" checked aria-label="Include Power in multi-chart stack">
+                            <span class="toggle-slider"></span>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Power &amp; Energy</span>
@@ -71,8 +72,9 @@
                 <!-- Climate & Humidity -->
                 <div class="stream-card" data-group="temp" id="stream-card-temp">
                     <div class="stream-header">
-                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
-                            <input type="checkbox" id="stream-check-temp" class="stream-checkbox" data-group="temp" checked>
+                        <label class="stream-toggle-box" title="Include/exclude Climate &amp; Comfort in multi-chart stack">
+                            <input type="checkbox" id="stream-check-temp" class="stream-checkbox" data-group="temp" checked aria-label="Include Climate in multi-chart stack">
+                            <span class="toggle-slider"></span>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Climate &amp; Comfort</span>
@@ -90,8 +92,9 @@
                 <!-- Water Heater Tanks -->
                 <div class="stream-card" data-group="wh" id="stream-card-wh">
                     <div class="stream-header">
-                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
-                            <input type="checkbox" id="stream-check-wh" class="stream-checkbox" data-group="wh" checked>
+                        <label class="stream-toggle-box" title="Include/exclude Water Heater in multi-chart stack">
+                            <input type="checkbox" id="stream-check-wh" class="stream-checkbox" data-group="wh" checked aria-label="Include Water Heater in multi-chart stack">
+                            <span class="toggle-slider"></span>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Water Heater</span>
@@ -107,8 +110,9 @@
                 <!-- Water Flow -->
                 <div class="stream-card" data-group="gpm" id="stream-card-gpm">
                     <div class="stream-header">
-                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
-                            <input type="checkbox" id="stream-check-gpm" class="stream-checkbox" data-group="gpm" checked>
+                        <label class="stream-toggle-box" title="Include/exclude Water Flow in multi-chart stack">
+                            <input type="checkbox" id="stream-check-gpm" class="stream-checkbox" data-group="gpm" checked aria-label="Include Water Flow in multi-chart stack">
+                            <span class="toggle-slider"></span>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">Water Flow</span>
@@ -124,8 +128,9 @@
                 <!-- HVAC & AC Diagnostics -->
                 <div class="stream-card" data-group="ac" id="stream-card-ac">
                     <div class="stream-header">
-                        <label class="stream-toggle-box" title="Include/exclude this stream in multi-chart stack">
-                            <input type="checkbox" id="stream-check-ac" class="stream-checkbox" data-group="ac">
+                        <label class="stream-toggle-box" title="Include/exclude AC Diagnostics in multi-chart stack">
+                            <input type="checkbox" id="stream-check-ac" class="stream-checkbox" data-group="ac" aria-label="Include AC Diagnostics in multi-chart stack">
+                            <span class="toggle-slider"></span>
                         </label>
                         <div class="stream-info">
                             <span class="stream-name">AC &amp; Heat Pump</span>

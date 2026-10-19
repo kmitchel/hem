@@ -29,7 +29,7 @@
 
     function updateActiveCount(){
         const badge=$('active-count-badge');
-        if(badge)badge.textContent=state.groups.length+' active';
+        if(badge)badge.textContent=state.groups.length+' in stack';
     }
 
     function paint(){
