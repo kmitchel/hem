@@ -93,6 +93,7 @@
                 check.checked=state.groups.includes(group);
                 choice.classList.toggle('disabled',!check.checked&&group!==selectedGroup);
             }
+            choice.classList.toggle('selected',group===selectedGroup);
             if(!isAll){
                 choice.style.display=(group===activeGroup)?'block':'none';
             }else{
@@ -298,7 +299,11 @@
     try{
         const response=await fetch('/api/rrd-graphs',{cache:'no-store'});if(!response.ok)throw new Error('Graph options unavailable.');catalog=await response.json();
         let saved='';try{saved=localStorage.getItem(key)||'';}catch{}
+        const urlParams=new URLSearchParams(location.search);
         state=S.read(new URLSearchParams(location.search||saved));
+        if(!urlParams.has('active')){
+            state.active='all';
+        }
         selectedGroup=(state.active&&state.active!=='all')?state.active:(state.groups[0]||'watt');
         setupChoices();paint();
 
@@ -352,9 +357,11 @@
             const group=card.dataset.group;
             if(!group)return;
 
+            selectedGroup=group;
+
             if(state.active==='all'){
                 // All Stacked mode: select for inspection and scroll stage to this graph
-                selectedGroup=group;
+                // All checked graphs remain visible - never hidden!
                 paint();
                 const target=document.querySelector(`article[data-graph="${group}"]`);
                 if(target){
@@ -368,29 +375,13 @@
                 if(state.active===group){
                     // Clicking the active focused card toggles back to All Stacked
                     state.active='all';
-                    selectedGroup=group;
                 }else{
                     state.active=group;
-                    selectedGroup=group;
                 }
                 paint();
                 render();
             }
 
-            if(window.innerWidth<=768&&$('pane-master'))$('pane-master').classList.remove('open');
-        });
-
-        // Double-click stream card to toggle Focus Detail on this metric
-        document.addEventListener('dblclick',event=>{
-            if(event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
-            const card=event.target.closest('.stream-card');
-            if(!card)return;
-            const group=card.dataset.group;
-            if(!group)return;
-            state.active=(state.active===group)?'all':group;
-            selectedGroup=group;
-            paint();
-            render();
             if(window.innerWidth<=768&&$('pane-master'))$('pane-master').classList.remove('open');
         });
 

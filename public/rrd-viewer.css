@@ -735,6 +735,13 @@ input:focus, select:focus, button:focus-visible {
     border: 1px solid var(--border);
     border-radius: var(--radius);
     padding: 6px 8px;
+    transition: all .15s ease;
+}
+
+.graph-choice.selected {
+    border-color: var(--accent);
+    background: var(--surface-elevated);
+    box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .graph-choice.disabled { opacity: .4; }
