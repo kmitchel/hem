@@ -293,7 +293,6 @@ html, body {
     height: 0;
     position: absolute;
     margin: 0;
-    pointer-events: none;
 }
 
 .stream-toggle-box .toggle-slider {
@@ -530,9 +529,16 @@ html, body {
     transition: border-color .15s ease;
 }
 
-.graph-card.highlight {
+.graph-card.highlight,
+.graph-card.highlight-pulse {
     border-color: var(--accent);
-    box-shadow: 0 0 10px var(--accent-glow);
+    box-shadow: 0 0 14px var(--accent-glow);
+    animation: cardPulse 1.4s ease-out;
+}
+
+@keyframes cardPulse {
+    0% { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent), 0 0 20px var(--accent-glow); }
+    100% { border-color: var(--border); box-shadow: none; }
 }
 
 .card-heading {

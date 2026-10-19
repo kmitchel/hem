@@ -3,7 +3,7 @@
     'use strict';
     const S=window.RRDViewerState,$=id=>document.getElementById(id),key='hem.rrd.viewer.v1';
     const form=$('viewer-controls'),cards=new Map();
-    let catalog,state,controller,timer,debounce,generation=0,currentWindow,loading=false;
+    let catalog,state,controller,timer,debounce,generation=0,currentWindow,loading=false,selectedGroup='watt';
 
     function status(message){
         const el=$('status');
@@ -57,11 +57,17 @@
         if($('view-mode-focus'))$('view-mode-focus').classList.toggle('active',!isAll);
         if($('view-mode-all'))$('view-mode-all').classList.toggle('active',isAll);
 
+        if(state.active!=='all'){
+            selectedGroup=state.active;
+        }else if(!selectedGroup||!catalog||!catalog.groups[selectedGroup]){
+            selectedGroup=state.groups[0]||'watt';
+        }
+
         // Update master stream cards
         document.querySelectorAll('.stream-card').forEach(card=>{
             const group=card.dataset.group;
             const isChecked=state.groups.includes(group);
-            const isSelected=!isAll&&state.active===group;
+            const isSelected=(group===selectedGroup);
             const input=card.querySelector('input.stream-checkbox');
             if(input)input.checked=isChecked;
             card.classList.toggle('unchecked',!isChecked);
@@ -73,9 +79,9 @@
 
         // Update inspector metric heading
         const heading=$('inspector-heading');
-        const activeGroup=state.active==='all'?(state.groups[0]||'watt'):state.active;
+        const activeGroup=selectedGroup||'watt';
         if(heading&&catalog&&catalog.groups[activeGroup]){
-            heading.textContent=isAll?'All Metrics Inspector':catalog.groups[activeGroup].label;
+            heading.textContent=isAll?(catalog.groups[activeGroup].label+' · Inspector'):catalog.groups[activeGroup].label;
         }
 
         // Filter/highlight inspector trace options
@@ -85,7 +91,7 @@
             const check=$('group-'+group);
             if(check){
                 check.checked=state.groups.includes(group);
-                choice.classList.toggle('disabled',!check.checked&&state.active!==group);
+                choice.classList.toggle('disabled',!check.checked&&group!==selectedGroup);
             }
             if(!isAll){
                 choice.style.display=(group===activeGroup)?'block':'none';
@@ -97,7 +103,7 @@
                     const input=$('trace-'+group+'-'+trace);
                     if(input){
                         input.checked=state.lines[group].includes(trace);
-                        input.disabled=!state.groups.includes(group)&&state.active!==group;
+                        input.disabled=!state.groups.includes(group)&&group!==selectedGroup;
                     }
                 }
             }
@@ -293,6 +299,7 @@
         const response=await fetch('/api/rrd-graphs',{cache:'no-store'});if(!response.ok)throw new Error('Graph options unavailable.');catalog=await response.json();
         let saved='';try{saved=localStorage.getItem(key)||'';}catch{}
         state=S.read(new URLSearchParams(location.search||saved));
+        selectedGroup=(state.active&&state.active!=='all')?state.active:(state.groups[0]||'watt');
         setupChoices();paint();
 
         form.addEventListener('submit',event=>{event.preventDefault();apply();});
@@ -337,21 +344,59 @@
             apply();
         });
 
-        // Master stream card selection (Focus / Inspector target)
+        // Master stream card selection & scroll / focus
         document.addEventListener('click',event=>{
             if(event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
             const card=event.target.closest('.stream-card');
             if(!card)return;
             const group=card.dataset.group;
             if(!group)return;
-            state.active=group;
+
+            if(state.active==='all'){
+                // All Stacked mode: select for inspection and scroll stage to this graph
+                selectedGroup=group;
+                paint();
+                const target=document.querySelector(`article[data-graph="${group}"]`);
+                if(target){
+                    target.scrollIntoView({behavior:'smooth',block:'center'});
+                    target.classList.remove('highlight-pulse');
+                    void target.offsetWidth;
+                    target.classList.add('highlight-pulse');
+                }
+            }else{
+                // Focus Detail mode:
+                if(state.active===group){
+                    // Clicking the active focused card toggles back to All Stacked
+                    state.active='all';
+                    selectedGroup=group;
+                }else{
+                    state.active=group;
+                    selectedGroup=group;
+                }
+                paint();
+                render();
+            }
+
+            if(window.innerWidth<=768&&$('pane-master'))$('pane-master').classList.remove('open');
+        });
+
+        // Double-click stream card to toggle Focus Detail on this metric
+        document.addEventListener('dblclick',event=>{
+            if(event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
+            const card=event.target.closest('.stream-card');
+            if(!card)return;
+            const group=card.dataset.group;
+            if(!group)return;
+            state.active=(state.active===group)?'all':group;
+            selectedGroup=group;
             paint();
             render();
+            if(window.innerWidth<=768&&$('pane-master'))$('pane-master').classList.remove('open');
         });
 
         // View Mode toggles
         if($('view-mode-focus'))$('view-mode-focus').addEventListener('click',()=>{
-            state.active=state.active==='all'?(state.groups[0]||'watt'):state.active;
+            state.active=selectedGroup||state.groups[0]||'watt';
             paint();render();
         });
         if($('view-mode-all'))$('view-mode-all').addEventListener('click',()=>{
