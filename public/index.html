@@ -1,162 +1,68 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <title>Home Energy Monitor</title>
-    <style>
-        img { cursor: pointer; display: block; margin-bottom: 10px; }
-    </style>
-<link rel="stylesheet" href="sensor-status.css">
-<script src="js/sensor-status.js" defer></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>RRD history · Home Energy Monitor</title>
+    <link rel="stylesheet" href="rrd-viewer.css">
+    <link rel="stylesheet" href="sensor-status.css">
+    <script src="js/rrd-viewer-state.js" defer></script>
+    <script src="js/rrd-viewer.js" defer></script>
+    <script src="js/sensor-status.js" defer></script>
+    <script src="js/mqtt.min.js" defer></script>
+    <script src="js/rrd-live.js" defer></script>
 </head>
-
 <body>
-    <p><a href="chart.html">Room and sensor charts</a></p>
-    <span id="power"></span><br>
-    <span id="kWh"></span><br>
-    <span id="t"></span><br>
-    <span id="out"></span><br>
-    <span id="upper"></span><br>
-    <span id="lower"></span><br>
-    <span id="achigh">AC high side: Awaiting replacement</span><br>
-    <span id="aclow">AC low side: Awaiting replacement</span><br>
-    <span id="gal"></span><br>
-    <span id="gpm"></span><br>
-    <span id="rh"></span><br>
-    <span id="dew"></span><br>
-    <span id="state"></span><br>
-    <span id="cool"></span><br>
-    <span id="heat"></span><br>
-
-    <img id="watt2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="temp2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="ac2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="wh2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="gpm2" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="watt24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="temp24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="ac24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="wh24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="gpm24" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <p><label for="rrd-history">History:</label>
-        <select id="rrd-history">
-            <option value="96h">4 days</option><option value="7d">1 week</option>
-            <option value="30d">30 days</option><option value="90d">90 days</option>
-            <option value="365d">1 year</option><option value="3y">3 years</option>
-        </select>
-    </p>
-    <img id="watt96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="temp96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="ac96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="wh96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-    <img id="gpm96" width="1080" height="240" style="width: 100%; height: auto" src="blank.png" alt="">
-
-    <script src="js/mqtt.min.js"></script>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            
-            const time = () => Math.floor(Date.now() / 1000 / 30) * 60 * 1000;
-
-            const updateImg = (id, type, temp, start) => {
-                const el = document.getElementById(id);
-                if (el) el.src = `/graph/${type}?${temp}&start=${start}`;
-            };
-
-            const loadImg = (temp) => {
-                const graphs = ['watt', 'temp', 'ac', 'wh', 'gpm'];
-                const periods = { '2': '12h', '24': '48h', '96': document.getElementById('rrd-history').value };
-
-                Object.entries(periods).forEach(([suffix, startValue]) => {
-                    graphs.forEach(type => {
-                        updateImg(type + suffix, type, temp, startValue);
-                    });
-                });
-            };
-
-            document.getElementById('rrd-history').addEventListener('change', () => loadImg(time()));
-
-            // Initial load
-            loadImg(time());
-
-            // Refresh on click for all images
-            document.querySelectorAll('img').forEach(img => {
-                img.addEventListener('click', () => loadImg(time()));
-            });
-
-            // Auto-refresh every 30 seconds
-            setInterval(() => loadImg(time()), 30000);
-
-            // MQTT Connection
-            const host = window.location.hostname;
-            const client = mqtt.connect(`ws://${host}:9001`);
-//console.log(client)
-
-            client.on("error", (err) => {
-                console.error("MQTT Error:", err);
-                client.end();
-            });
-
-            client.on("connect", () => {
-                console.log("Connected to MQTT broker");
-                client.subscribe("#");
-            });
-
-            client.on("message", (topic, message) => {
-                const msgStr = message.toString();
-                const updateHTML = (id, val) => {
-                    const el = document.getElementById(id);
-                    if (el) el.innerHTML = val;
-                };
-
-                switch (topic) {
-                    case "hvac/state": updateHTML("state", msgStr); break;
-                    case "power/W": updateHTML("power", `Current Power: ${msgStr}W`); break;
-                    case "temp/284a046d4c2001a3": updateHTML("out", `Outside Temp: ${msgStr}F`); break;
-                    case "temp/2809853f030000a7": updateHTML("upper", `Upper WH Temp: ${msgStr}F`); break;
-                    case "temp/2813513f03000072": updateHTML("lower", `Lower WH Temp: ${msgStr}F`); break;
-                    case "temp/289fa756b5013c68": updateHTML("achigh", `High AC Temp: ${msgStr}F`); break;
-                    case "temp/2874913c46200105": updateHTML("aclow", `Low AC Temp: ${msgStr}F`); break;
-                    case "water/Gal": updateHTML("gal", `Gallons: ${msgStr}`); break;
-                    case "water/GPM": updateHTML("gpm", `${msgStr} GPM`); break;
-                    case "hvac/controlTempF": updateHTML("t", `Controller temperature: ${parseFloat(msgStr).toFixed(1)}F`); break;
-                    case "temp/room1/rh": updateHTML("rh", `RH: ${msgStr}%`); break;
-                    case "temp/room1/dewF": updateHTML("dew", `DEW: ${msgStr}F`); break;
-                    case "hvac/coolTime": updateHTML("cool", `Cool Runtime: ${msgStr} Min`); break;
-                    case "hvac/heatTime": updateHTML("heat", `Heat Runtime: ${msgStr} Min`); break;
-
-                    case "power/kWh":
-                        const kwh = Number(msgStr);
-                        let cost = 25;
-                        if (kwh > 500) {
-                            cost += (500 * 0.123131) + ((kwh - 500) * 0.104397);
-                        } else {
-                            cost += kwh * 0.123131;
-                        }
-                        cost += (kwh * 0.021983) + (kwh * 0.000390);
-                        cost *= 1.07;
-
-                        const now = new Date();
-                        const month = now.getDate() > 6 ? now.getMonth() : now.getMonth() - 1;
-                        const startOfCycle = new Date(now.getFullYear(), month, 7).getTime();
-                        const endOfCycle = new Date(now.getFullYear(), month + 1, 7).getTime();
-                        
-                        const projectedkWh = kwh / (now.getTime() - startOfCycle) * (endOfCycle - startOfCycle);
-                        let projectedCost = 25;
-                        if (projectedkWh > 500) {
-                            projectedCost += (500 * 0.123131) + ((projectedkWh - 500) * 0.104397);
-                        } else {
-                            projectedCost += projectedkWh * 0.123131;
-                        }
-                        projectedCost += (projectedkWh * 0.021983) + (projectedkWh * 0.000390);
-                        projectedCost *= 1.07;
-
-                        updateHTML("kWh", `${msgStr} kWh @ $${cost.toFixed(2)}<br>Projected Monthly Cost: ${projectedkWh.toFixed(2)}kWh @ $${projectedCost.toFixed(2)}`);
-                        break;
-                }
-            });
-        });
-    </script>
+<main id="main" class="viewer">
+    <header class="page-header">
+        <div><p class="eyebrow">HOME ENERGY MONITOR</p><h1>RRD history</h1><p class="intro">The familiar graphs. Your choice of view.</p></div>
+        <nav aria-label="Dashboards"><a href="chart.html">Sensor charts</a><a href="hvac.html">Thermostat</a></nav>
+    </header>
+    <details class="live-readings"><summary>Live readings</summary><div class="readings">
+        <span id="power">Power: connecting</span><span id="kWh">Energy: connecting</span><span id="t">Controller: connecting</span>
+        <span id="out"></span><span id="upper"></span><span id="lower"></span>
+        <span id="achigh">AC high: awaiting replacement</span><span id="aclow">AC low: awaiting replacement</span>
+        <span id="gal"></span><span id="gpm"></span><span id="rh"></span><span id="dew"></span>
+        <span id="state"></span><span id="cool"></span><span id="heat"></span>
+    </div></details>
+    <form id="viewer-controls" class="controls" aria-label="Graph controls">
+        <div class="section-heading"><h2>Build your view</h2><button type="button" id="reset" class="text-button">Reset view</button></div>
+        <div class="primary-controls">
+            <label>Time range<select id="range" name="range">
+                <option value="1h">Last hour</option><option value="6h">Last 6 hours</option><option value="12h">Last 12 hours</option>
+                <option value="24h" selected>Last 24 hours</option><option value="48h">Last 48 hours</option><option value="96h">Last 4 days</option>
+                <option value="7d">Last week</option><option value="30d">Last 30 days</option><option value="90d">Last 90 days</option>
+                <option value="365d">Last year</option><option value="3y">Last 3 years</option><option value="today">Today</option><option value="yesterday">Yesterday</option><option value="custom">Custom dates</option>
+            </select></label>
+            <label>Refresh<select id="refresh"><option value="0">Manual</option><option value="30">Every 30 seconds</option><option value="60" selected>Every minute</option><option value="300">Every 5 minutes</option></select></label>
+            <label>Resolution<select id="resolution"><option value="auto">Auto</option><option value="30">30 seconds · 48 hours</option><option value="60">1 minute · 30 days</option><option value="300">5 minutes · 90 days</option><option value="900">15 minutes · 1 year</option><option value="3600">1 hour · 3 years</option></select></label>
+            <button class="primary" type="submit" id="generate">Generate graphs</button>
+        </div>
+        <div id="custom-dates" class="custom-dates" hidden>
+            <label>From<input type="datetime-local" id="from"></label><label>To<input type="datetime-local" id="to"></label>
+            <p>Custom dates use your local time. Graph axes use Indianapolis time.</p>
+        </div>
+        <fieldset class="graph-picker"><legend>Graphs &amp; lines</legend><div id="graph-options" class="graph-options"><p>Loading graph options…</p></div></fieldset>
+        <details class="advanced"><summary>Appearance &amp; detail</summary><div class="advanced-grid">
+            <label>Sensor aggregation<select id="cf"><option value="AVERAGE">Average</option><option value="MIN">Minimum</option><option value="MAX">Maximum</option></select></label>
+            <label>Height<select id="height"><option value="240">Compact · 240 px</option><option value="320" selected>Standard · 320 px</option><option value="480">Large · 480 px</option><option value="640">Extra large · 640 px</option></select></label>
+            <label>Image width<select id="width"><option value="auto">Fit the page</option><option value="1080">1,080 px</option><option value="1600">1,600 px</option><option value="2200">2,200 px</option></select></label>
+            <label>Y-axis minimum<input id="min" type="number" step="any" placeholder="Auto"></label><label>Y-axis maximum<input id="max" type="number" step="any" placeholder="Auto"></label>
+            <label class="check"><input id="legend" type="checkbox" checked> Legend</label><label class="check"><input id="stats" type="checkbox" checked> Last / average / min / max</label>
+            <label class="check"><input id="bands" type="checkbox"> Min–max shading</label><label class="check"><input id="hvac" type="checkbox" checked> Heating &amp; cooling overlay</label><label class="check"><input id="log" type="checkbox" checked> Logarithmic power axis</label>
+        </div><p class="hint">Axis bounds apply to all selected graphs. Water flow always uses averages. Min–max shading is available with average sensor values.</p></details>
+    </form>
+    <section class="view-toolbar" aria-label="Time navigation">
+        <div class="navigation-buttons"><button id="back" type="button" title="Move back half a window">← Earlier</button><button id="forward" type="button" title="Move forward half a window">Later →</button><button id="zoom-in" type="button">+ Zoom in</button><button id="zoom-out" type="button">− Zoom out</button><button id="now" type="button">Back to now</button></div>
+        <div class="view-actions"><button id="reload" type="button">Refresh now</button><button id="share" type="button">Copy view link</button></div>
+    </section>
+    <div class="view-caption"><p id="window-label">Choose your view above.</p><p class="solar-key"><span class="sunrise">●</span> Sunrise <span class="noon">●</span> Solar noon <span class="sunset">●</span> Sunset</p></div>
+    <p id="status" role="status" aria-live="polite">Loading viewer…</p>
+    <p id="form-error" class="error" role="alert" hidden></p>
+    <div id="share-fallback" hidden><label>View link<input id="share-url" type="text" readonly></label></div>
+    <section id="graphs" aria-label="RRD graphs"></section>
+    <noscript><p class="error">Enable JavaScript to use the graph controls. <a href="/graph/temp?start=24h">Open a temperature graph</a>.</p></noscript>
+    <footer>Available detail depends on retained history. Missing sensor readings remain gaps; water sensor silence means zero flow. Solar markers are spaced on long ranges.</footer>
+</main>
 </body>
 </html>

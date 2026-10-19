@@ -112,10 +112,10 @@ water 0..1,000 GPM, HVAC 0..100%. Longer heartbeat values are not used to concea
 event-driven collection gaps. The water sensor publishes only during flow, so
 water graphs display silence as zero GPM; other graphs retain unknown gaps.
 
-The overview's third graph group offers 4 days, 1 week, 30 days, 90 days, 1 year
-or 3 years. These are also available as `start=96h`, `7d`, `30d`, `90d`, `365d`
-or `3y` on the existing graph URLs. Rendering steps match available tiers and
-the width of the graph.
+The interactive overview offers preset and custom history ranges, including
+4 days, 1 week, 30 days, 90 days, 1 year and 3 years. These are also available as
+`start=96h`, `7d`, `30d`, `90d`, `365d` or `3y` on the graph URLs. Rendering steps
+match available tiers and the width of the graph. See Interactive RRD viewer below.
 
 `./createrrd.sh NEW_DIRECTORY` creates empty files in a new directory only;
 it refuses an existing destination instead of erasing live history. Python 3,
@@ -178,3 +178,73 @@ an old LevelDB over the live database merely to roll back RRDs.
 Verification: `npm test` includes Python migration tests for missing buckets,
 mixed grids, timestamp conversion, runtime counters, and continued PDP/CDP
 updates after restoration and catch-up, plus graph-range and zero-flow-rendering tests.
+
+## Interactive RRD viewer
+
+`index.html` is the on-demand RRD viewer. Choose graph groups and individual
+lines, select a preset or custom local dates, then generate the view. Earlier /
+Later pan by half a window; Zoom in/out changes the interval around its center.
+Navigation into history pauses automatic refresh; Back to now returns to a
+rolling preset. Refresh can be manual, 30 seconds, one minute or five minutes.
+Hidden tabs pause graph requests. Only two viewer requests run concurrently,
+and changed views cancel obsolete requests. Failed updates retain the last image
+with an explicit error and a refresh instruction.
+
+Appearance controls include image dimensions, minimum/average/maximum sensor
+aggregates, optional min–max shading, legend/statistics, HVAC overlays, power
+logarithmic scale and optional Y-axis bounds. Sensor bounds apply to all selected
+graphs; water always uses AVERAGE and silence remains zero flow. Missing extrema
+stay unknown; requesting MIN/MAX does not invent peaks absent from the archive.
+
+Each graph offers Open full size and Download PNG. The URL contains the complete
+view configuration, so bookmarks and shared links reproduce it. Live preset
+links remain relative to now; custom links retain exact epochs. Last-used settings
+are also kept in browser local storage. Reset view restores defaults. Clipboard
+copy falls back to a selectable link on HTTP origins without clipboard access.
+
+The existing classic RRD PNG styles, colors and sunrise (orange), solar noon
+(red), and sunset (blue) lines remain. Solar events use the selected historical
+calendar dates at the existing HEM location, with axes in America/Indianapolis.
+Long ranges mark representative days (no more than roughly 24 days of solar
+events), spaced evenly across the interval to avoid obscuring the series. Cards
+show the solar-day spacing and requested rendering interval. Custom date inputs
+use the browser's local timezone; the window caption and graph axes use
+Indianapolis time. RRD may consolidate further to fit pixels or retained data.
+
+### Graph API
+
+`GET /api/rrd-graphs` returns available groups/traces, presets, retention tiers,
+timezone and the existing solar location. `GET /graph/:id` still returns a PNG
+for `watt`, `temp`, `wh`, `ac` or `gpm`. Existing preset links such as
+`/graph/temp?start=48h` remain supported; the 6h preset now correctly means six
+hours. The default period is 24 hours.
+
+Supported query parameters:
+
+| Parameter | Values |
+|---|---|
+| `start` | `1h`, `2h`, `4h`, `6h`, `12h`, `24h`, `48h`, `96h`, `7d`, `30d`, `90d`, `365d`, `3y` |
+| `from`, `to` | Both Unix timestamps in seconds; override `start`. Range: 60 seconds through 1,095 days. End may not exceed server time by more than five minutes. |
+| `series` | Comma-separated allowed trace IDs from the catalog for that group |
+| `resolution` | `auto`, `30`, `60`, `300`, `900`, `3600` seconds; manual requests finer than retained history are rejected |
+| `cf` | `AVERAGE`, `MIN`, `MAX`; flow remains `AVERAGE` |
+| `width`, `height` | Integer pixels, width 640–2,400 and height 200–900 |
+| `min`, `max` | Optional finite Y-axis limits; minimum must be below maximum; logarithmic power needs positive limits |
+| `legend`, `stats`, `bands`, `hvac`, `log` | `0` or `1`; `bands` applies to sensor averages, `hvac` to indoor temperature, and `log` to power |
+
+Example: `/graph/wh?start=7d&series=upper,lower&bands=1&height=480`.
+Successful PNG responses include `X-RRD-Step`, `X-RRD-CF`,
+`X-Solar-Stride-Days` and a filename in Content-Disposition. Invalid parameters
+return JSON with a 400 status; unknown graphs return 404. Rendering errors return
+502, timeouts 504, and a busy renderer 503 with Retry-After. Images are buffered
+until rendering succeeds so failures do not masquerade as PNGs. Each process has
+a 15-second timeout and 8 MiB output limit; four renders can run concurrently.
+Client disconnects terminate their render process. All query arguments are
+validated against fixed groups/options before invoking RRDtool without a shell.
+
+`rrd-graphs.js` owns the graph API; browser state/navigation helpers are in
+`public/js/rrd-viewer-state.js`, controls and request handling in
+`public/js/rrd-viewer.js`, and existing MQTT live readings in
+`public/js/rrd-live.js`. `npm test` covers API plans, validation, historical solar
+markers, renderer errors/cancellation and viewer URL state/navigation in addition
+to the collector, retention, data API and migration suites.
