@@ -243,23 +243,12 @@ html, body {
     border-color: var(--border-hover);
 }
 
-.stream-card.selected,
-.stream-card.active {
-    background: var(--surface-elevated);
-    border-color: var(--accent);
-    box-shadow: 0 0 0 1px var(--accent), 0 0 10px var(--accent-glow);
+.stream-card.unchecked {
+    opacity: 0.65;
 }
 
-.stream-card.selected::before,
-.stream-card.active::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 6px;
-    bottom: 6px;
-    width: 3px;
-    background: var(--accent);
-    border-radius: 0 2px 2px 0;
+.stream-card.unchecked:hover {
+    opacity: 0.85;
 }
 
 .stream-card.unchecked .stream-tag {
@@ -736,12 +725,6 @@ input:focus, select:focus, button:focus-visible {
     border-radius: var(--radius);
     padding: 6px 8px;
     transition: all .15s ease;
-}
-
-.graph-choice.selected {
-    border-color: var(--accent);
-    background: var(--surface-elevated);
-    box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .graph-choice.disabled { opacity: .4; }

@@ -5,10 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RRD History · Home Energy Monitor</title>
     <meta name="description" content="3-pane master/detail telemetry diagnostics for Home Energy Monitor.">
-    <link rel="stylesheet" href="rrd-viewer.css?v=2.3.0">
+    <link rel="stylesheet" href="rrd-viewer.css?v=2.4.0">
     <link rel="stylesheet" href="sensor-status.css">
-    <script src="js/rrd-viewer-state.js?v=2.3.0" defer></script>
-    <script src="js/rrd-viewer.js?v=2.3.0" defer></script>
+    <script src="js/rrd-viewer-state.js?v=2.4.0" defer></script>
+    <script src="js/rrd-viewer.js?v=2.4.0" defer></script>
     <script src="js/sensor-status.js" defer></script>
     <script src="js/mqtt.min.js" defer></script>
     <script src="js/rrd-live.js" defer></script>
@@ -22,12 +22,6 @@
             <span class="brand-name">HEM</span>
             <span class="brand-sep">/</span>
             <span class="page-title">RRD History</span>
-        </div>
-        <div class="header-center">
-            <div class="view-mode-toggle" role="tablist" aria-label="Layout view mode">
-                <button type="button" id="view-mode-focus" class="view-btn active" role="tab" aria-selected="true">Focus Detail</button>
-                <button type="button" id="view-mode-all" class="view-btn" role="tab" aria-selected="false">All Stacked</button>
-            </div>
         </div>
         <div class="header-right">
             <nav class="nav-links" aria-label="Dashboards">
@@ -47,12 +41,12 @@
         <aside id="pane-master" class="pane pane-master" aria-label="Metrics Master List">
             <div class="pane-header">
                 <span class="pane-title">Metrics &amp; Live Streams</span>
-                <span class="pane-badge" id="active-count-badge">4 in stack</span>
+                <span class="pane-badge" id="active-count-badge">4 enabled</span>
             </div>
 
             <div class="master-stream-list" id="master-stream-list">
                 <!-- Power & Energy -->
-                <div class="stream-card selected" data-group="watt" id="stream-card-watt">
+                <div class="stream-card" data-group="watt" id="stream-card-watt">
                     <div class="stream-header">
                         <label class="stream-toggle-box" title="Include/exclude Power &amp; Energy in multi-chart stack">
                             <input type="checkbox" id="stream-check-watt" class="stream-checkbox" data-group="watt" checked aria-label="Include Power in multi-chart stack">

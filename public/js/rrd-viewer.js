@@ -3,7 +3,7 @@
     'use strict';
     const S=window.RRDViewerState,$=id=>document.getElementById(id),key='hem.rrd.viewer.v1';
     const form=$('viewer-controls'),cards=new Map();
-    let catalog,state,controller,timer,debounce,generation=0,currentWindow,loading=false,selectedGroup='watt';
+    let catalog,state,controller,timer,debounce,generation=0,currentWindow,loading=false;
 
     function status(message){
         const el=$('status');
@@ -29,7 +29,7 @@
 
     function updateActiveCount(){
         const badge=$('active-count-badge');
-        if(badge)badge.textContent=state.groups.length+' in stack';
+        if(badge)badge.textContent=state.groups.length+' enabled';
     }
 
     function paint(){
@@ -52,59 +52,38 @@
             btn.classList.toggle('active',btn.dataset.range===state.range);
         });
 
-        // Update View Mode buttons
-        const isAll=state.active==='all';
-        if($('view-mode-focus'))$('view-mode-focus').classList.toggle('active',!isAll);
-        if($('view-mode-all'))$('view-mode-all').classList.toggle('active',isAll);
-
-        if(state.active!=='all'){
-            selectedGroup=state.active;
-        }else if(!selectedGroup||!catalog||!catalog.groups[selectedGroup]){
-            selectedGroup=state.groups[0]||'watt';
-        }
-
-        // Update master stream cards
+        // Update master stream cards solely based on checkboxes
         document.querySelectorAll('.stream-card').forEach(card=>{
             const group=card.dataset.group;
             const isChecked=state.groups.includes(group);
-            const isSelected=(group===selectedGroup);
             const input=card.querySelector('input.stream-checkbox');
             if(input)input.checked=isChecked;
             card.classList.toggle('unchecked',!isChecked);
-            card.classList.toggle('selected',isSelected);
-            card.classList.toggle('active',isSelected);
         });
 
         updateActiveCount();
 
-        // Update inspector metric heading
+        // Inspector metric heading
         const heading=$('inspector-heading');
-        const activeGroup=selectedGroup||'watt';
-        if(heading&&catalog&&catalog.groups[activeGroup]){
-            heading.textContent=isAll?(catalog.groups[activeGroup].label+' · Inspector'):catalog.groups[activeGroup].label;
-        }
+        if(heading)heading.textContent='Graph Options & Series';
 
-        // Filter/highlight inspector trace options
+        // Filter/highlight inspector trace options based on checked state
         document.querySelectorAll('.graph-choice').forEach(choice=>{
             const group=choice.dataset.group;
             if(!group)return;
             const check=$('group-'+group);
+            const isChecked=state.groups.includes(group);
             if(check){
-                check.checked=state.groups.includes(group);
-                choice.classList.toggle('disabled',!check.checked&&group!==selectedGroup);
+                check.checked=isChecked;
+                choice.classList.toggle('disabled',!isChecked);
             }
-            choice.classList.toggle('selected',group===selectedGroup);
-            if(!isAll){
-                choice.style.display=(group===activeGroup)?'block':'none';
-            }else{
-                choice.style.display='block';
-            }
+            choice.style.display='block';
             if(catalog&&catalog.groups[group]){
                 for(const trace of catalog.groups[group].traces){
                     const input=$('trace-'+group+'-'+trace);
                     if(input){
                         input.checked=state.lines[group].includes(trace);
-                        input.disabled=!state.groups.includes(group)&&group!==selectedGroup;
+                        input.disabled=!isChecked;
                     }
                 }
             }
@@ -168,10 +147,7 @@
     }
 
     function visibleGroups(){
-        if(state.active&&state.active!=='all'){
-            return [state.active];
-        }
-        return state.groups.length?state.groups:(catalog&&Object.keys(catalog.groups).length?[Object.keys(catalog.groups)[0]]:['watt']);
+        return state.groups.length ? state.groups : (catalog && Object.keys(catalog.groups).length ? [Object.keys(catalog.groups)[0]] : ['watt']);
     }
 
     function synchronizeCards(){
@@ -299,12 +275,8 @@
     try{
         const response=await fetch('/api/rrd-graphs',{cache:'no-store'});if(!response.ok)throw new Error('Graph options unavailable.');catalog=await response.json();
         let saved='';try{saved=localStorage.getItem(key)||'';}catch{}
-        const urlParams=new URLSearchParams(location.search);
         state=S.read(new URLSearchParams(location.search||saved));
-        if(!urlParams.has('active')){
-            state.active='all';
-        }
-        selectedGroup=(state.active&&state.active!=='all')?state.active:(state.groups[0]||'watt');
+        state.active='all';
         setupChoices();paint();
 
         form.addEventListener('submit',event=>{event.preventDefault();apply();});
@@ -349,7 +321,7 @@
             apply();
         });
 
-        // Master stream card selection & scroll / focus
+        // Master stream card click: scroll to graph if visible, or toggle it on if off
         document.addEventListener('click',event=>{
             if(event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
             const card=event.target.closest('.stream-card');
@@ -357,42 +329,21 @@
             const group=card.dataset.group;
             if(!group)return;
 
-            selectedGroup=group;
-
-            if(state.active==='all'){
-                // All Stacked mode: select for inspection and scroll stage to this graph
-                // All checked graphs remain visible - never hidden!
-                paint();
-                const target=document.querySelector(`article[data-graph="${group}"]`);
-                if(target){
-                    target.scrollIntoView({behavior:'smooth',block:'center'});
-                    target.classList.remove('highlight-pulse');
-                    void target.offsetWidth;
-                    target.classList.add('highlight-pulse');
-                }
+            const target=document.querySelector(`article[data-graph="${group}"]`);
+            if(target){
+                target.scrollIntoView({behavior:'smooth',block:'center'});
+                target.classList.remove('highlight-pulse');
+                void target.offsetWidth;
+                target.classList.add('highlight-pulse');
             }else{
-                // Focus Detail mode:
-                if(state.active===group){
-                    // Clicking the active focused card toggles back to All Stacked
-                    state.active='all';
-                }else{
-                    state.active=group;
+                const input=card.querySelector('input.stream-checkbox');
+                if(input){
+                    input.checked=true;
+                    input.dispatchEvent(new Event('change',{bubbles:true}));
                 }
-                paint();
-                render();
             }
 
             if(window.innerWidth<=768&&$('pane-master'))$('pane-master').classList.remove('open');
-        });
-
-        // View Mode toggles
-        if($('view-mode-focus'))$('view-mode-focus').addEventListener('click',()=>{
-            state.active=selectedGroup||state.groups[0]||'watt';
-            paint();render();
-        });
-        if($('view-mode-all'))$('view-mode-all').addEventListener('click',()=>{
-            state.active='all';
-            paint();render();
         });
 
         // Sidebar toggles for mobile / tablet
