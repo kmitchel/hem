@@ -31,10 +31,13 @@ assert.ok(markers.markers.length>=3);
 for(const marker of markers.markers){const t=Number(marker.split(':')[1].split('#')[0]);assert.ok(t>=now-2*86400&&t<=now-86400);}
 const longMarkers=solarMarkers(now-PRESETS['3y'],now,SunCalc);
 assert.ok(longMarkers.stride>1&&longMarkers.markers.length<=78);
+const mobileGraph=buildGraph('temp',{width:'320',height:'200'},options);
+assert.ok(mobileGraph.args.includes('320'));
+assert.ok(mobileGraph.args.includes('200'));
 for(const [id,query]of [
     ['not-a-graph',{}],['temp',{start:';rm -rf'}],['temp',{series:'../../etc/passwd'}],
     ['temp',{series:'in,in'}],['temp',{from:String(now-60)}],['temp',{from:String(now),to:String(now-60)}],
-    ['temp',{from:String(now-60),to:String(now+600)}],['temp',{width:'99999'}],['temp',{height:'2'}],
+    ['temp',{from:String(now-60),to:String(now+600)}],['temp',{width:'99999'}],['temp',{width:'150'}],['temp',{height:'2'}],
     ['temp',{min:'20',max:'10'}],['temp',{cf:'LAST'}],['temp',{resolution:'30',start:'365d'}],
     ['watt',{min:'0'}],['temp',{legend:['1','0']}],['temp',{from:'1e5',to:String(now)}],
     ['temp',{theme:'neon'}]

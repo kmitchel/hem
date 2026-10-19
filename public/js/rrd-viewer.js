@@ -235,7 +235,10 @@
         const invalid=S.validate(state);if(invalid){error(invalid);status('Adjust controls to generate view.');return;}
         error();if(controller)controller.abort();controller=new AbortController();const signal=controller.signal,token=++generation;
         loading=true;save();synchronizeCards();currentWindow=S.windowFor(state);caption(currentWindow);
-        const containerWidth=$('graphs')?Math.max(500,Math.min(2400,Math.round($('graphs').clientWidth-2))):1080;
+        const graphsEl=$('graphs');
+        const measured=graphsEl&&graphsEl.clientWidth>0?graphsEl.clientWidth:0;
+        const fallback=typeof window!=='undefined'&&window.innerWidth?Math.max(240,window.innerWidth-32):1080;
+        const containerWidth=Math.max(240,Math.min(2400,Math.round((measured||fallback)-2)));
         const targets=visibleGroups();
         const jobs=targets.map(id=>({id,url:graphUrl(id,currentWindow,containerWidth)}));
         status('Rendering '+jobs.length+' graph'+(jobs.length===1?'':'s')+'…');
@@ -381,6 +384,14 @@
             }
         });
         window.addEventListener('popstate',()=>{state=S.read(new URLSearchParams(location.search));paint();render();});
+        let resizeTimer;
+        window.addEventListener('resize',()=>{
+            if(state.width!=='auto')return;
+            clearTimeout(resizeTimer);
+            resizeTimer=setTimeout(()=>{
+                if(!document.hidden&&!loading)render();
+            },250);
+        });
         document.addEventListener('visibilitychange',()=>{if(!document.hidden&&!loading&&state.refresh>0&&!['custom','yesterday'].includes(state.range))render();});
         window.addEventListener('pagehide',()=>{if(controller)controller.abort();for(const card of cards.values())if(card.objectUrl)URL.revokeObjectURL(card.objectUrl);});
         render();

@@ -88,7 +88,7 @@ function buildGraph(id,query,{root,SunCalc,now=Math.floor(Date.now()/1000)}) {
     const group=GROUPS[id], window=windowFor(query,now);
     const theme=scalar(query,'theme','dark');
     if (!['dark','light'].includes(theme)) throw new GraphError('Invalid theme');
-    const width=numeric(query,'width',1080,640,2400,true),height=numeric(query,'height',320,200,900,true);
+    const width=numeric(query,'width',1080,200,2400,true),height=numeric(query,'height',320,160,900,true);
     const selectedText=scalar(query,'series',group.traces.join(','));
     const selected=selectedText.split(',');
     if (!selected.length || selected.some(s=>!group.traces.includes(s)) || new Set(selected).size!==selected.length) throw new GraphError('Select valid graph lines');
