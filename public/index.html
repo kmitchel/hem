@@ -4,10 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RRD History · Home Energy Monitor</title>
-    <meta name="description" content="Classic high-resolution RRD history and interactive diagnostics for home energy, HVAC, and environmental sensors.">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <meta name="description" content="Minimal, high-efficiency RRD diagnostics and history for home energy telemetry.">
     <link rel="stylesheet" href="rrd-viewer.css">
     <link rel="stylesheet" href="sensor-status.css">
     <script src="js/rrd-viewer-state.js" defer></script>
@@ -18,33 +15,30 @@
 </head>
 <body>
 <main id="main" class="viewer">
-    <header class="page-header">
-        <div class="header-titles">
-            <p class="eyebrow"><span class="pulse-dot"></span> HOME ENERGY MONITOR</p>
-            <h1>RRD History</h1>
-            <p class="intro">Telemetry archives and customizable RRD diagnostics.</p>
+    <header class="app-header">
+        <div class="brand">
+            <span class="pulse-dot" title="Live telemetry"></span>
+            <span class="brand-name">HEM</span>
+            <span class="brand-sep">/</span>
+            <span class="page-title">RRD History</span>
         </div>
-        <nav class="nav-tabs" aria-label="Dashboards">
-            <a href="index.html" class="nav-link active" aria-current="page">RRD history</a>
-            <a href="chart.html" class="nav-link">Sensor charts</a>
-            <a href="hvac.html" class="nav-link">Thermostat</a>
+        <nav class="nav-links" aria-label="Dashboards">
+            <a href="index.html" class="active" aria-current="page">RRD</a>
+            <a href="chart.html">Charts</a>
+            <a href="hvac.html">HVAC</a>
         </nav>
     </header>
 
-    <details class="live-readings" open>
-        <summary class="live-summary">
-            <span class="live-summary-title"><span class="live-indicator">●</span> Live Sensor Telemetry (MQTT)</span>
-            <span class="live-summary-badge">Live feed</span>
-        </summary>
-        <div class="readings">
-            <span id="power">Power: connecting</span>
-            <span id="kWh">Energy: connecting</span>
-            <span id="t">Controller: connecting</span>
+    <div class="live-strip" aria-label="Live Telemetry">
+        <div class="readings" id="live-readings">
+            <span id="power">Power: …</span>
+            <span id="kWh">Energy: …</span>
+            <span id="t">Controller: …</span>
             <span id="out"></span>
             <span id="upper"></span>
             <span id="lower"></span>
-            <span id="achigh">AC high: awaiting replacement</span>
-            <span id="aclow">AC low: awaiting replacement</span>
+            <span id="achigh"></span>
+            <span id="aclow"></span>
             <span id="gal"></span>
             <span id="gpm"></span>
             <span id="rh"></span>
@@ -53,187 +47,162 @@
             <span id="cool"></span>
             <span id="heat"></span>
         </div>
-    </details>
+    </div>
 
-    <form id="viewer-controls" class="controls" aria-label="Graph controls">
-        <div class="section-heading">
-            <div class="heading-left">
-                <h2>Build Your View</h2>
-                <span class="control-badge">Interactive RRD</span>
+    <section class="control-bar" aria-label="Viewer Controls">
+        <div class="bar-section quick-ranges" role="toolbar" aria-label="Time presets">
+            <button type="button" class="preset-btn" data-range="1h">1h</button>
+            <button type="button" class="preset-btn" data-range="6h">6h</button>
+            <button type="button" class="preset-btn" data-range="12h">12h</button>
+            <button type="button" class="preset-btn" data-range="24h">24h</button>
+            <button type="button" class="preset-btn" data-range="48h">48h</button>
+            <button type="button" class="preset-btn" data-range="7d">7d</button>
+            <button type="button" class="preset-btn" data-range="30d">30d</button>
+            <button type="button" class="preset-btn" data-range="90d">90d</button>
+            <button type="button" class="preset-btn" data-range="365d">1y</button>
+            <button type="button" class="preset-btn" data-range="3y">3y</button>
+            <button type="button" class="preset-btn" data-range="today">Today</button>
+            <button type="button" class="preset-btn" data-range="custom">Custom</button>
+        </div>
+
+        <div class="bar-section nav-controls">
+            <button id="back" type="button" class="btn-icon" title="Earlier window">‹ Earlier</button>
+            <button id="zoom-out" type="button" class="btn-icon" title="Zoom out">− Zoom</button>
+            <button id="zoom-in" type="button" class="btn-icon" title="Zoom in">+ Zoom</button>
+            <button id="forward" type="button" class="btn-icon" title="Later window">Later ›</button>
+            <button id="now" type="button" title="Jump to latest data">Now</button>
+        </div>
+
+        <div class="bar-section action-controls">
+            <button id="options-toggle" type="button" class="btn-options" aria-expanded="false" aria-controls="options-drawer" title="Toggle graph options & custom range">⚙ Options</button>
+            <button id="reload" type="button" title="Refresh graphs">⟳</button>
+            <button id="share" type="button" title="Copy shareable link">Share</button>
+        </div>
+    </section>
+
+    <form id="viewer-controls">
+        <div id="options-drawer" class="options-drawer" hidden>
+            <div id="custom-dates" class="custom-dates" hidden>
+                <label>From
+                    <input type="datetime-local" id="from">
+                </label>
+                <label>To
+                    <input type="datetime-local" id="to">
+                </label>
+                <p class="custom-dates-hint">Local datetime input. Graph coordinates align to Indianapolis time.</p>
             </div>
-            <button type="button" id="reset" class="text-button">Reset defaults</button>
-        </div>
 
-        <div class="quick-ranges" role="toolbar" aria-label="Quick presets">
-            <span class="quick-ranges-label">Presets:</span>
-            <div class="preset-pill-group">
-                <button type="button" class="preset-btn" data-range="1h">1h</button>
-                <button type="button" class="preset-btn" data-range="6h">6h</button>
-                <button type="button" class="preset-btn" data-range="12h">12h</button>
-                <button type="button" class="preset-btn" data-range="24h">24h</button>
-                <button type="button" class="preset-btn" data-range="48h">48h</button>
-                <button type="button" class="preset-btn" data-range="7d">7d</button>
-                <button type="button" class="preset-btn" data-range="30d">30d</button>
-                <button type="button" class="preset-btn" data-range="90d">90d</button>
-                <button type="button" class="preset-btn" data-range="365d">1y</button>
-                <button type="button" class="preset-btn" data-range="3y">3y</button>
-                <button type="button" class="preset-btn" data-range="today">Today</button>
-                <button type="button" class="preset-btn" data-range="yesterday">Yesterday</button>
-                <button type="button" class="preset-btn" data-range="custom">Custom</button>
-            </div>
-        </div>
-
-        <div class="primary-controls">
-            <label>Time range
-                <select id="range" name="range">
-                    <option value="1h">Last hour</option>
-                    <option value="6h">Last 6 hours</option>
-                    <option value="12h">Last 12 hours</option>
-                    <option value="24h" selected>Last 24 hours</option>
-                    <option value="48h">Last 48 hours</option>
-                    <option value="96h">Last 4 days</option>
-                    <option value="7d">Last week</option>
-                    <option value="30d">Last 30 days</option>
-                    <option value="90d">Last 90 days</option>
-                    <option value="365d">Last year</option>
-                    <option value="3y">Last 3 years</option>
-                    <option value="today">Today</option>
-                    <option value="yesterday">Yesterday</option>
-                    <option value="custom">Custom dates</option>
-                </select>
-            </label>
-            <label>Auto-refresh
-                <select id="refresh">
-                    <option value="0">Manual only</option>
-                    <option value="30">Every 30 seconds</option>
-                    <option value="60" selected>Every minute</option>
-                    <option value="300">Every 5 minutes</option>
-                </select>
-            </label>
-            <label>Resolution step
-                <select id="resolution">
-                    <option value="auto">Auto (optimal tier)</option>
-                    <option value="30">30 seconds · 48 hours</option>
-                    <option value="60">1 minute · 30 days</option>
-                    <option value="300">5 minutes · 90 days</option>
-                    <option value="900">15 minutes · 1 year</option>
-                    <option value="3600">1 hour · 3 years</option>
-                </select>
-            </label>
-            <button class="primary" type="submit" id="generate">Generate graphs</button>
-        </div>
-
-        <div id="custom-dates" class="custom-dates" hidden>
-            <label>From
-                <input type="datetime-local" id="from">
-            </label>
-            <label>To
-                <input type="datetime-local" id="to">
-            </label>
-            <p class="custom-dates-hint">Custom dates use your local time. Graph axes are aligned to Indianapolis time.</p>
-        </div>
-
-        <fieldset class="graph-picker">
-            <legend>Graphs &amp; Metric Traces</legend>
-            <div id="graph-options" class="graph-options">
-                <p>Loading graph options…</p>
-            </div>
-        </fieldset>
-
-        <details class="advanced">
-            <summary>Appearance &amp; Advanced Options</summary>
-            <div class="advanced-grid">
-                <label>Sensor aggregation
+            <div class="drawer-grid">
+                <label>Time range
+                    <select id="range" name="range">
+                        <option value="1h">Last hour</option>
+                        <option value="6h">Last 6 hours</option>
+                        <option value="12h">Last 12 hours</option>
+                        <option value="24h" selected>Last 24 hours</option>
+                        <option value="48h">Last 48 hours</option>
+                        <option value="96h">Last 4 days</option>
+                        <option value="7d">Last week</option>
+                        <option value="30d">Last 30 days</option>
+                        <option value="90d">Last 90 days</option>
+                        <option value="365d">Last year</option>
+                        <option value="3y">Last 3 years</option>
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="custom">Custom dates</option>
+                    </select>
+                </label>
+                <label>Auto-refresh
+                    <select id="refresh">
+                        <option value="0">Manual only</option>
+                        <option value="30">Every 30s</option>
+                        <option value="60" selected>Every minute</option>
+                        <option value="300">Every 5 min</option>
+                    </select>
+                </label>
+                <label>Resolution tier
+                    <select id="resolution">
+                        <option value="auto">Auto (tier default)</option>
+                        <option value="30">30s (up to 48h)</option>
+                        <option value="60">1m (up to 30d)</option>
+                        <option value="300">5m (up to 90d)</option>
+                        <option value="900">15m (up to 1y)</option>
+                        <option value="3600">1h (up to 3y)</option>
+                    </select>
+                </label>
+                <label>Aggregation (CF)
                     <select id="cf">
                         <option value="AVERAGE">Average</option>
                         <option value="MIN">Minimum</option>
                         <option value="MAX">Maximum</option>
                     </select>
                 </label>
-                <label>Plot height
+                <label>Height
                     <select id="height">
-                        <option value="240">Compact · 240 px</option>
-                        <option value="320" selected>Standard · 320 px</option>
-                        <option value="480">Large · 480 px</option>
-                        <option value="640">Extra large · 640 px</option>
+                        <option value="240">Compact (240px)</option>
+                        <option value="320" selected>Standard (320px)</option>
+                        <option value="480">Large (480px)</option>
+                        <option value="640">XL (640px)</option>
                     </select>
                 </label>
                 <label>Image width
                     <select id="width">
-                        <option value="auto">Auto · fit page</option>
+                        <option value="auto">Auto (page width)</option>
                         <option value="1080">1,080 px</option>
                         <option value="1600">1,600 px</option>
                         <option value="2200">2,200 px</option>
                     </select>
                 </label>
-                <label>Y-axis minimum
+                <label>Y-min
                     <input id="min" type="number" step="any" placeholder="Auto">
                 </label>
-                <label>Y-axis maximum
+                <label>Y-max
                     <input id="max" type="number" step="any" placeholder="Auto">
                 </label>
-                <label class="check">
-                    <input id="legend" type="checkbox" checked> Show legend
-                </label>
-                <label class="check">
-                    <input id="stats" type="checkbox" checked> Statistics (last, avg, min, max)
-                </label>
-                <label class="check">
-                    <input id="bands" type="checkbox"> Min–max shading bands
-                </label>
-                <label class="check">
-                    <input id="hvac" type="checkbox" checked> HVAC heating/cooling overlay
-                </label>
-                <label class="check">
-                    <input id="log" type="checkbox" checked> Logarithmic power axis
-                </label>
             </div>
-            <p class="hint">Axis limits apply across selected graphs. Water flow uses averages. Min–max shading applies to average sensor series.</p>
-        </details>
+
+            <div class="drawer-grid">
+                <label class="check"><input id="legend" type="checkbox" checked> Legend</label>
+                <label class="check"><input id="stats" type="checkbox" checked> Statistics (min/max/avg/last)</label>
+                <label class="check"><input id="bands" type="checkbox"> Min–max bands</label>
+                <label class="check"><input id="hvac" type="checkbox" checked> HVAC overlay</label>
+                <label class="check"><input id="log" type="checkbox" checked> Log power axis</label>
+            </div>
+
+            <fieldset class="graph-picker">
+                <legend>Metrics &amp; Line Selection</legend>
+                <div id="graph-options" class="graph-options"></div>
+            </fieldset>
+
+            <div class="drawer-footer">
+                <button type="button" id="reset" class="text-button">Reset defaults</button>
+                <button type="submit" id="generate" class="primary">Apply options</button>
+            </div>
+        </div>
     </form>
 
-    <section class="view-toolbar" aria-label="Time navigation and actions">
-        <div class="toolbar-group navigation-buttons">
-            <button id="back" type="button" title="Move back half a window">← Earlier</button>
-            <button id="zoom-in" type="button" title="Zoom in">+ Zoom in</button>
-            <button id="zoom-out" type="button" title="Zoom out">− Zoom out</button>
-            <button id="forward" type="button" title="Move forward half a window">Later →</button>
-            <button id="now" type="button" title="Jump to latest data">Back to now</button>
+    <div class="meta-bar">
+        <span id="window-label">Loading time window…</span>
+        <div class="solar-key">
+            <span><span class="solar-dot sunrise">●</span> Sunrise</span>
+            <span><span class="solar-dot noon">●</span> Noon</span>
+            <span><span class="solar-dot sunset">●</span> Sunset</span>
         </div>
-        <div class="toolbar-group view-actions">
-            <button id="reload" type="button" title="Re-fetch graph images">⟳ Refresh now</button>
-            <button id="share" type="button" title="Copy shareable link to this view">Copy view link</button>
-        </div>
-    </section>
-
-    <div class="view-caption">
-        <p id="window-label">Choose your view above.</p>
-        <p class="solar-key">
-            <span class="solar-chip"><span class="solar-dot sunrise">●</span> Sunrise</span>
-            <span class="solar-chip"><span class="solar-dot noon">●</span> Solar noon</span>
-            <span class="solar-chip"><span class="solar-dot sunset">●</span> Sunset</span>
-        </p>
     </div>
 
-    <p id="status" role="status" aria-live="polite">Loading viewer…</p>
+    <p id="status" role="status" aria-live="polite"></p>
     <p id="form-error" class="error" role="alert" hidden></p>
     <div id="share-fallback" hidden>
-        <label>View link
-            <input id="share-url" type="text" readonly>
-        </label>
+        <label>Share URL: <input id="share-url" type="text" readonly></label>
     </div>
 
-    <section id="graphs" aria-label="RRD graphs"></section>
+    <section id="graphs" aria-label="RRD Graphs"></section>
 
     <noscript>
-        <p class="error">Enable JavaScript to use the interactive graph controls. <a href="/graph/temp?start=24h&theme=dark">Open temperature graph</a>.</p>
+        <p class="error">JavaScript is required for interactive RRD controls. <a href="/graph/temp?start=24h&theme=dark">Open temperature graph</a>.</p>
     </noscript>
 
     <footer>
-        <div class="footer-content">
-            <p>Available detail depends on retained history tiers. Missing sensor readings remain gaps; water sensor silence indicates zero flow.</p>
-            <p>Solar markers calculated for Indianapolis (America/Indianapolis). Theme styled for low-light observability.</p>
-        </div>
+        <p>HEM RRD diagnostics · Indianapolis (America/Indianapolis) solar alignment · Gaps represent sensor loss; water silence denotes zero flow.</p>
     </footer>
 </main>
 </body>
