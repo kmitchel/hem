@@ -323,7 +323,7 @@
 
         // Master stream card click: scroll to graph if visible, or toggle it on if off
         document.addEventListener('click',event=>{
-            if(event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
+            if(event.target.closest('.stream-check')||event.target.closest('.stream-toggle-box')||event.target.matches('.stream-checkbox'))return;
             const card=event.target.closest('.stream-card');
             if(!card)return;
             const group=card.dataset.group;

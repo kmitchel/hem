@@ -265,58 +265,29 @@ html, body {
     gap: 8px;
 }
 
+.stream-check,
 .stream-toggle-box {
-    position: relative;
     display: inline-flex;
     align-items: center;
-    width: 26px;
-    height: 15px;
+    justify-content: center;
     cursor: pointer;
     flex-shrink: 0;
+    margin: 0;
+    padding: 0;
     user-select: none;
 }
 
-.stream-toggle-box input.stream-checkbox {
-    opacity: 0;
-    width: 0;
-    height: 0;
-    position: absolute;
+.stream-checkbox {
+    width: 16px;
+    height: 16px;
+    accent-color: var(--accent);
+    cursor: pointer;
     margin: 0;
+    border-radius: 3px;
+    vertical-align: middle;
 }
 
-.stream-toggle-box .toggle-slider {
-    position: absolute;
-    inset: 0;
-    background: var(--surface-hover);
-    border: 1px solid var(--border);
-    border-radius: 15px;
-    transition: all .15s ease;
-}
-
-.stream-toggle-box .toggle-slider::before {
-    position: absolute;
-    content: "";
-    height: 9px;
-    width: 9px;
-    left: 2px;
-    bottom: 2px;
-    background: var(--muted);
-    border-radius: 50%;
-    transition: all .15s ease;
-}
-
-.stream-toggle-box input:checked + .toggle-slider {
-    background: rgba(56, 189, 248, 0.25);
-    border-color: var(--accent);
-}
-
-.stream-toggle-box input:checked + .toggle-slider::before {
-    transform: translateX(11px);
-    background: var(--accent);
-    box-shadow: 0 0 5px var(--accent-glow);
-}
-
-.stream-toggle-box input:focus-visible + .toggle-slider {
+.stream-checkbox:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
