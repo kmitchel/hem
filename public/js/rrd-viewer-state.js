@@ -1,7 +1,7 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.RRDViewerState=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
     'use strict';
     const periods={'1h':3600,'6h':21600,'12h':43200,'24h':86400,'48h':172800,'96h':345600,'7d':604800,'30d':2592000,'90d':7776000,'365d':31536000,'3y':94608000};
-    const defaults=()=>({groups:['watt','temp','wh','gpm'],range:'24h',from:null,to:null,refresh:60,resolution:'auto',cf:'AVERAGE',height:320,width:'auto',legend:true,stats:true,bands:false,hvac:true,log:true,min:'',max:'',
+    const defaults=()=>({groups:['watt','temp','wh','gpm'],range:'24h',from:null,to:null,refresh:60,resolution:'auto',cf:'AVERAGE',height:320,width:'auto',legend:true,stats:true,bands:false,hvac:true,log:true,theme:'dark',min:'',max:'',
         lines:{watt:['w'],temp:['rh','dew','in','out'],wh:['upper','lower'],ac:['aclow','achigh','out'],gpm:['gpm']}});
     function read(params){
         const s=defaults();
@@ -12,13 +12,14 @@
             const v=typeof allowed[0]==='number'?Number(params.get(key)):params.get(key);if(params.has(key)&&allowed.includes(v))s[key]=v;
         }
         for(const key of ['legend','stats','bands','hvac','log'])if(['0','1'].includes(params.get(key)))s[key]=params.get(key)==='1';
+        const theme=params.get('theme');if(['dark','light'].includes(theme))s.theme=theme;
         for(const k of ['min','max']){const v=params.get(k);if(v!==null&&v!==''&&Number.isFinite(Number(v))&&Math.abs(Number(v))<=1e9)s[k]=String(Number(v));}
         for(const group of Object.keys(s.lines))if(params.has(group))s.lines[group]=params.get(group).split(',').filter((v,i,a)=>s.lines[group].includes(v)&&a.indexOf(v)===i);
         if(s.range==='custom')s.refresh=0;
         return s;
     }
     function write(s){
-        const p=new URLSearchParams({graphs:s.groups.join(','),range:s.range,refresh:String(s.refresh),resolution:s.resolution,cf:s.cf,height:String(s.height),width:String(s.width)});
+        const p=new URLSearchParams({graphs:s.groups.join(','),range:s.range,refresh:String(s.refresh),resolution:s.resolution,cf:s.cf,height:String(s.height),width:String(s.width),theme:s.theme||'dark'});
         if(s.range==='custom'){if(s.from!==null)p.set('from',String(s.from));if(s.to!==null)p.set('to',String(s.to));}
         for(const k of ['legend','stats','bands','hvac','log'])p.set(k,s[k]?'1':'0');
         for(const k of ['min','max'])if(s[k]!=='')p.set(k,s[k]);

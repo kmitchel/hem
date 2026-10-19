@@ -7,7 +7,10 @@ for(const [preset,duration]of Object.entries(PRESETS)){
     const plan=buildGraph('gpm',{start:preset},options);
     assert.equal(plan.window.to-plan.window.from,duration);
     assert.ok(plan.args.includes('CDEF:fixgpm=gpm,UN,0,gpm,IF'));
-    assert.ok(plan.args.includes('LINE1:fixgpm#000000:Water flow (GPM)'));
+    assert.ok(plan.args.includes('LINE1:fixgpm#38bdf8:Water flow (GPM)'));
+    assert.ok(plan.args.includes('BACK#121824'));
+    const lightPlan=buildGraph('gpm',{start:preset,theme:'light'},options);
+    assert.ok(lightPlan.args.includes('LINE1:fixgpm#000000:Water flow (GPM)'));
 }
 assert.equal(buildGraph('temp',{start:'6h'},options).window.duration,21600);
 const custom=buildGraph('temp',{from:String(now-172800),to:String(now-86400),series:'in,out',width:'1600',height:'480',bands:'1'},options);
@@ -33,7 +36,8 @@ for(const [id,query]of [
     ['temp',{series:'in,in'}],['temp',{from:String(now-60)}],['temp',{from:String(now),to:String(now-60)}],
     ['temp',{from:String(now-60),to:String(now+600)}],['temp',{width:'99999'}],['temp',{height:'2'}],
     ['temp',{min:'20',max:'10'}],['temp',{cf:'LAST'}],['temp',{resolution:'30',start:'365d'}],
-    ['watt',{min:'0'}],['temp',{legend:['1','0']}],['temp',{from:'1e5',to:String(now)}]
+    ['watt',{min:'0'}],['temp',{legend:['1','0']}],['temp',{from:'1e5',to:String(now)}],
+    ['temp',{theme:'neon'}]
 ])assert.throws(()=>buildGraph(id,query,options),undefined,JSON.stringify(query));
 
 function response(){const res=new EventEmitter();res.headers={};res.setHeader=(k,v)=>{res.headers[k]=v;};res.status=code=>{res.code=code;return res;};res.json=value=>{res.jsonValue=value;res.writableEnded=true;};res.send=value=>{res.body=value;res.writableEnded=true;};return res;}

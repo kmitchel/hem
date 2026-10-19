@@ -6,16 +6,16 @@ const PRESETS = { '1h':3600, '2h':7200, '4h':14400, '6h':21600, '12h':43200,
 const TIERS = [{ step:30, days:2 }, { step:60, days:30 }, { step:300, days:90 },
     { step:900, days:365 }, { step:3600, days:1095 }];
 const TRACES = {
-    w: { label:'Power', unit:'W', color:'000000' },
-    in: { label:'Inside', unit:'F', color:'00ff00' },
-    out: { label:'Outside', unit:'F', color:'0000ff' },
-    dew: { label:'Dew point', unit:'F', color:'000000' },
-    rh: { label:'Humidity', unit:'%', color:'ff00ff' },
-    upper: { label:'Upper tank', unit:'F', color:'ff0000' },
-    lower: { label:'Lower tank', unit:'F', color:'0000ff' },
-    achigh: { label:'AC high', unit:'F', color:'ff0000' },
-    aclow: { label:'AC low', unit:'F', color:'0000ff' },
-    gpm: { label:'Water flow', unit:'GPM', color:'000000' }
+    w: { label:'Power', unit:'W', color:'000000', darkColor:'38bdf8' },
+    in: { label:'Inside', unit:'F', color:'00ff00', darkColor:'4ade80' },
+    out: { label:'Outside', unit:'F', color:'0000ff', darkColor:'38bdf8' },
+    dew: { label:'Dew point', unit:'F', color:'000000', darkColor:'c084fc' },
+    rh: { label:'Humidity', unit:'%', color:'ff00ff', darkColor:'f472b6' },
+    upper: { label:'Upper tank', unit:'F', color:'ff0000', darkColor:'f87171' },
+    lower: { label:'Lower tank', unit:'F', color:'0000ff', darkColor:'60a5fa' },
+    achigh: { label:'AC high', unit:'F', color:'ff0000', darkColor:'f87171' },
+    aclow: { label:'AC low', unit:'F', color:'0000ff', darkColor:'38bdf8' },
+    gpm: { label:'Water flow', unit:'GPM', color:'000000', darkColor:'38bdf8' }
 };
 const GROUPS = {
     watt: { label:'Power', unit:'Watts', traces:['w'] },
@@ -60,7 +60,7 @@ function windowFor(query,now) {
     if (to>now+300) throw new GraphError('The end date cannot be in the future');
     return { from,to,duration:to-from };
 }
-function solarMarkers(from,to,SunCalc) {
+function solarMarkers(from,to,SunCalc,theme='dark') {
     // Anchor at 17:00 UTC, always midday in Indianapolis, to preserve calendar
     // dates through DST without changing the collector process timezone.
     const parts=new Intl.DateTimeFormat('en-US',{ timeZone:'America/Indianapolis',year:'numeric',month:'numeric',day:'numeric' }).formatToParts(new Date(from*1000));
@@ -69,9 +69,12 @@ function solarMarkers(from,to,SunCalc) {
     const days=Math.ceil((to*1000-first)/86400000)+1;
     const stride=Math.max(1,Math.ceil(days/24));
     const markers=[], labeled=new Set();
+    const markerColors = theme === 'dark'
+        ? [['sunrise','fbbf24','Sunrise'],['solarNoon','f87171','Solar noon'],['sunset','38bdf8','Sunset']]
+        : [['sunrise','FFA500','Sunrise'],['solarNoon','ff0000','Solar noon'],['sunset','00a5ff','Sunset']];
     for (let day=0;day<=days;day+=stride) {
         const times=SunCalc.getTimes(new Date(first+day*86400000),41.1660,-85.4831);
-        for (const [key,color,label] of [['sunrise','FFA500','Sunrise'],['solarNoon','ff0000','Solar noon'],['sunset','00a5ff','Sunset']]) {
+        for (const [key,color,label] of markerColors) {
             const t=Math.round(Number(times[key])/1000);
             if (!Number.isFinite(t) || t<from || t>to) continue;
             markers.push(`VRULE:${t}#${color}${labeled.has(key)?'':':'+label}`);
@@ -83,6 +86,8 @@ function solarMarkers(from,to,SunCalc) {
 function buildGraph(id,query,{root,SunCalc,now=Math.floor(Date.now()/1000)}) {
     if (!Object.hasOwn(GROUPS,id)) throw new GraphError('Unknown graph',404);
     const group=GROUPS[id], window=windowFor(query,now);
+    const theme=scalar(query,'theme','dark');
+    if (!['dark','light'].includes(theme)) throw new GraphError('Invalid theme');
     const width=numeric(query,'width',1080,640,2400,true),height=numeric(query,'height',320,200,900,true);
     const selectedText=scalar(query,'series',group.traces.join(','));
     const selected=selectedText.split(',');
@@ -113,16 +118,38 @@ function buildGraph(id,query,{root,SunCalc,now=Math.floor(Date.now()/1000)}) {
     const args=['graph','-','-a','PNG','--width',String(width),'--height',String(height),'--full-size-mode',
         '--start',String(window.from),'--end',String(window.to),'--step',String(step),
         '--title',group.label+(effectiveCf==='AVERAGE'?'':' — '+effectiveCf.toLowerCase()),'--vertical-label',group.unit];
+    if (theme==='dark') {
+        args.push(
+            '--color','BACK#121824',
+            '--color','CANVAS#0d1117',
+            '--color','SHADEA#1e293b',
+            '--color','SHADEB#1e293b',
+            '--color','GRID#1e293b',
+            '--color','MGRID#334155',
+            '--color','FONT#cbd5e1',
+            '--color','AXIS#475569',
+            '--color','FRAME#334155',
+            '--color','ARROW#94a3b8'
+        );
+    }
     if (!legend) args.push('--no-legend');
     if (log) args.push('--logarithmic','--units=si');
     if (minimum!==null) args.push('--lower-limit',String(minimum));
     if (maximum!==null) args.push('--upper-limit',String(maximum));
     if (minimum!==null && maximum!==null) args.push('--rigid');
-    const solar=solarMarkers(window.from,window.to,SunCalc);
+    const solar=solarMarkers(window.from,window.to,SunCalc,theme);
     args.push(...solar.markers);
     const file=name=>path.join(root,`hem-${name}.rrd`);
+    const resolveColor=(name)=>{
+        const trace=TRACES[name];
+        if (theme==='dark') {
+            if (id==='ac' && name==='out') return '94a3b8';
+            return trace.darkColor||trace.color;
+        }
+        return id==='ac'&&name==='out'?'000000':trace.color;
+    };
     for (const name of selected) {
-        const trace=TRACES[name],color=id==='ac'&&name==='out'?'000000':trace.color;
+        const color=resolveColor(name);
         args.push(`DEF:${name}=${file(name)}:${name}:${effectiveCf}`);
         if (bands) {
             args.push(`DEF:${name}min=${file(name)}:${name}:MIN`,`DEF:${name}max=${file(name)}:${name}:MAX`,
@@ -130,19 +157,21 @@ function buildGraph(id,query,{root,SunCalc,now=Math.floor(Date.now()/1000)}) {
         }
     }
     for (const name of selected) {
-        const trace=TRACES[name], variable=name==='gpm'?'fixgpm':name,color=id==='ac'&&name==='out'?'000000':trace.color;
+        const trace=TRACES[name], variable=name==='gpm'?'fixgpm':name, color=resolveColor(name);
         if (name==='gpm') args.push('CDEF:fixgpm=gpm,UN,0,gpm,IF'); // Event-only: silence means no water.
         args.push(`LINE1:${variable}#${color}:${trace.label} (${trace.unit})`);
         if (stats) args.push(`GPRINT:${variable}:LAST:Last\\: %6.2lf`,`GPRINT:${variable}:AVERAGE:Avg\\: %6.2lf`,
             `GPRINT:${variable}:MIN:Min\\: %6.2lf`,`GPRINT:${variable}:MAX:Max\\: %6.2lf\\l`);
     }
     if (id==='temp' && selected.includes('in') && boolean(query,'hvac',true)) {
+        const heatColor=theme==='dark'?'f87171':'ff0000';
+        const coolColor=theme==='dark'?'60a5fa':'0000ff';
         args.push(`DEF:heat=${file('heat')}:heat:AVERAGE`,`DEF:cool=${file('cool')}:cool:AVERAGE`,
-            'CDEF:heaton=heat,0,GT,in,UNKN,IF','LINE1:heaton#ff0000:Heating',
-            'CDEF:coolon=cool,0,GT,in,UNKN,IF','LINE1:coolon#0000ff:Cooling');
+            'CDEF:heaton=heat,0,GT,in,UNKN,IF',`LINE1:heaton#${heatColor}:Heating`,
+            'CDEF:coolon=cool,0,GT,in,UNKN,IF',`LINE1:coolon#${coolColor}:Cooling`);
     }
-    return {args,window,step,solarStride:solar.stride,cf:effectiveCf,
-        filename:`hem-${id}-${effectiveCf.toLowerCase()}-${new Date(window.from*1000).toISOString().slice(0,10)}-${new Date(window.to*1000).toISOString().slice(0,10)}.png`};
+    return {args,window,step,solarStride:solar.stride,cf:effectiveCf,theme,
+        filename:`hem-${id}-${effectiveCf.toLowerCase()}-${theme}-${new Date(window.from*1000).toISOString().slice(0,10)}-${new Date(window.to*1000).toISOString().slice(0,10)}.png`};
 }
 function createGraphHandler({root,SunCalc,spawn=require('node:child_process').spawn,now=()=>Math.floor(Date.now()/1000),timeoutMs=15000,maxActive=4,log=console.error}) {
     let active=0;
@@ -174,6 +203,7 @@ function createGraphHandler({root,SunCalc,spawn=require('node:child_process').sp
             res.setHeader('Content-Type','image/png');res.setHeader('Cache-Control','no-store');
             res.setHeader('Content-Disposition',`inline; filename="${plan.filename}"`);
             res.setHeader('X-RRD-Step',String(plan.step));res.setHeader('X-RRD-CF',plan.cf);res.setHeader('X-Solar-Stride-Days',String(plan.solarStride));
+            res.setHeader('X-RRD-Theme',plan.theme);
             res.send(png);
         });
         res.on('close',()=>{if(!done && !res.writableEnded){done=true;child.kill();release();}});
