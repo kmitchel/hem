@@ -1,11 +1,12 @@
 (function(root,factory){const api=factory();if(typeof module==='object'&&module.exports)module.exports=api;else root.RRDViewerState=api;})(typeof globalThis!=='undefined'?globalThis:this,function(){
     'use strict';
     const periods={'1h':3600,'6h':21600,'12h':43200,'24h':86400,'48h':172800,'96h':345600,'7d':604800,'30d':2592000,'90d':7776000,'365d':31536000,'3y':94608000};
-    const defaults=()=>({groups:['watt','temp','wh','gpm'],range:'24h',from:null,to:null,refresh:60,resolution:'auto',cf:'AVERAGE',height:320,width:'auto',legend:true,stats:true,bands:false,hvac:true,log:true,theme:'dark',min:'',max:'',
+    const defaults=()=>({groups:['watt','temp','wh','gpm'],active:'all',range:'24h',from:null,to:null,refresh:60,resolution:'auto',cf:'AVERAGE',height:320,width:'auto',legend:true,stats:true,bands:false,hvac:true,log:true,theme:'dark',min:'',max:'',
         lines:{watt:['w'],temp:['rh','dew','in','out'],wh:['upper','lower'],ac:['aclow','achigh','out'],gpm:['gpm']}});
     function read(params){
         const s=defaults();
         if(params.has('graphs'))s.groups=params.get('graphs').split(',').filter((v,i,a)=>Object.hasOwn(s.lines,v)&&a.indexOf(v)===i);
+        const active=params.get('active');if(active&&(Object.hasOwn(s.lines,active)||active==='all'))s.active=active;
         const range=params.get('range');if(Object.hasOwn(periods,range)||['today','yesterday','custom'].includes(range))s.range=range;
         for(const k of ['from','to']){const n=Number(params.get(k));if(params.has(k)&&Number.isInteger(n)&&n>0)s[k]=n;}
         for(const [key,allowed] of Object.entries({refresh:[0,30,60,300],height:[240,320,480,640],width:['auto','1080','1600','2200'],resolution:['auto','30','60','300','900','3600'],cf:['AVERAGE','MIN','MAX']})){
@@ -19,7 +20,7 @@
         return s;
     }
     function write(s){
-        const p=new URLSearchParams({graphs:s.groups.join(','),range:s.range,refresh:String(s.refresh),resolution:s.resolution,cf:s.cf,height:String(s.height),width:String(s.width),theme:s.theme||'dark'});
+        const p=new URLSearchParams({graphs:s.groups.join(','),active:s.active||'all',range:s.range,refresh:String(s.refresh),resolution:s.resolution,cf:s.cf,height:String(s.height),width:String(s.width),theme:s.theme||'dark'});
         if(s.range==='custom'){if(s.from!==null)p.set('from',String(s.from));if(s.to!==null)p.set('to',String(s.to));}
         for(const k of ['legend','stats','bands','hvac','log'])p.set(k,s[k]?'1':'0');
         for(const k of ['min','max'])if(s[k]!=='')p.set(k,s[k]);

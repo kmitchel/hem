@@ -1,4 +1,4 @@
-/* Minimal, high-efficiency RRD dashboard viewer */
+/* 3-Pane Master/Detail RRD Dashboard Viewer */
 (async function(){
     'use strict';
     const S=window.RRDViewerState,$=id=>document.getElementById(id),key='hem.rrd.viewer.v1';
@@ -26,6 +26,12 @@
         const d=new Date(seconds*1000),pad=n=>String(n).padStart(2,'0');
         return`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
+
+    function updateActiveCount(){
+        const badge=$('active-count-badge');
+        if(badge)badge.textContent=state.groups.length+' active';
+    }
+
     function paint(){
         for(const id of ['range','refresh','resolution','cf','height','width','min','max']){
             const node=$(id);if(node)node.value=state[id];
@@ -37,31 +43,65 @@
         if($('from'))$('from').value=dateInput(w.from);
         if($('to'))$('to').value=dateInput(w.to);
         if($('custom-dates'))$('custom-dates').hidden=state.range!=='custom';
-        if(state.range==='custom'&&$('options-drawer')){
-            $('options-drawer').hidden=false;
-            if($('options-toggle')){$('options-toggle').classList.add('active');$('options-toggle').setAttribute('aria-expanded','true');}
-        }
+
         if($('refresh'))$('refresh').disabled=state.range==='custom'||state.range==='yesterday';
         if($('stats'))$('stats').disabled=!state.legend;
         if($('bands'))$('bands').disabled=state.cf!=='AVERAGE';
+
         document.querySelectorAll('.preset-btn').forEach(btn=>{
             btn.classList.toggle('active',btn.dataset.range===state.range);
         });
-        if(catalog&&catalog.groups){
-            for(const [group]of Object.entries(catalog.groups)){
-                const check=$('group-'+group);
-                if(check){
-                    check.checked=state.groups.includes(group);
-                    const choice=check.closest('.graph-choice');
-                    if(choice)choice.classList.toggle('disabled',!check.checked);
-                    for(const trace of catalog.groups[group].traces){
-                        const input=$('trace-'+group+'-'+trace);
-                        if(input){input.checked=state.lines[group].includes(trace);input.disabled=!check.checked;}
+
+        // Update View Mode buttons
+        const isAll=state.active==='all';
+        if($('view-mode-focus'))$('view-mode-focus').classList.toggle('active',!isAll);
+        if($('view-mode-all'))$('view-mode-all').classList.toggle('active',isAll);
+
+        // Update master stream cards
+        document.querySelectorAll('.stream-card').forEach(card=>{
+            const group=card.dataset.group;
+            const isChecked=state.groups.includes(group);
+            const input=card.querySelector('input[type=checkbox]');
+            if(input)input.checked=isChecked;
+            card.classList.toggle('disabled',!isChecked);
+            card.classList.toggle('active',!isAll&&state.active===group);
+        });
+
+        updateActiveCount();
+
+        // Update inspector metric heading
+        const heading=$('inspector-heading');
+        const activeGroup=state.active==='all'?(state.groups[0]||'watt'):state.active;
+        if(heading&&catalog&&catalog.groups[activeGroup]){
+            heading.textContent=isAll?'All Metrics Inspector':catalog.groups[activeGroup].label;
+        }
+
+        // Filter/highlight inspector trace options
+        document.querySelectorAll('.graph-choice').forEach(choice=>{
+            const group=choice.dataset.group;
+            if(!group)return;
+            const check=$('group-'+group);
+            if(check){
+                check.checked=state.groups.includes(group);
+                choice.classList.toggle('disabled',!check.checked);
+            }
+            if(!isAll){
+                choice.style.display=(group===activeGroup)?'block':'none';
+            }else{
+                choice.style.display='block';
+            }
+            if(catalog&&catalog.groups[group]){
+                for(const trace of catalog.groups[group].traces){
+                    const input=$('trace-'+group+'-'+trace);
+                    if(input){
+                        input.checked=state.lines[group].includes(trace);
+                        input.disabled=!state.groups.includes(group);
                     }
                 }
             }
-        }
+        });
     }
+
     function read(){
         const next=structuredClone(state);
         for(const id of ['range','resolution','cf','width','min','max']){
@@ -92,15 +132,18 @@
         }
         return next;
     }
+
     function save(){
         const params=S.write(state),url=new URL(location.href);url.search=params.toString();url.hash='';
         history.replaceState(null,'',url);
         try{localStorage.setItem(key,params.toString());}catch{}
     }
+
     function setupChoices(){
         const fragment=document.createDocumentFragment();
         for(const [group,definition]of Object.entries(catalog.groups)){
             const box=el('div',undefined,'graph-choice'),label=el('label',undefined,'check group-check'),input=el('input');
+            box.dataset.group=group;
             input.type='checkbox';input.id='group-'+group;
             label.append(input,el('span',definition.label));box.append(label);
             if(definition.note)box.title=definition.note;
@@ -114,11 +157,27 @@
             }fragment.append(box);
         }$('graph-options').replaceChildren(fragment);
     }
+
+    function visibleGroups(){
+        if(state.active&&state.active!=='all'&&state.groups.includes(state.active)){
+            return [state.active];
+        }
+        return state.groups;
+    }
+
     function synchronizeCards(){
-        for(const [id,card]of cards)if(!state.groups.includes(id)){if(card.objectUrl)URL.revokeObjectURL(card.objectUrl);card.article.remove();cards.delete(id);}
-        for(const id of state.groups){
+        const activeList=visibleGroups();
+        for(const [id,card]of cards){
+            if(!activeList.includes(id)){
+                if(card.objectUrl)URL.revokeObjectURL(card.objectUrl);
+                card.article.remove();
+                cards.delete(id);
+            }
+        }
+        for(const id of activeList){
             if(!cards.has(id)){
-                const definition=catalog.groups[id],article=el('article',undefined,'graph-card');article.dataset.graph=id;
+                const definition=catalog.groups[id],article=el('article',undefined,'graph-card');
+                article.dataset.graph=id;
                 const heading=el('div',undefined,'card-heading');
                 heading.append(el('h2',definition.label,'card-title'));
                 const right=el('div',undefined,'card-right');
@@ -136,9 +195,11 @@
                 article.append(heading,frame);
                 if(definition.note)article.append(el('p',definition.note,'card-note'));
                 cards.set(id,{article,message,frame,img,open,download,objectUrl:null});
-            }$('graphs').append(cards.get(id).article);
+            }
+            $('graphs').append(cards.get(id).article);
         }
     }
+
     function graphUrl(id,window,containerWidth){
         const width=state.width==='auto'?containerWidth:Number(state.width);
         const p=new URLSearchParams({
@@ -155,30 +216,42 @@
         for(const k of ['min','max'])if(state[k]!=='')p.set(k,state[k]);
         return'/graph/'+id+'?'+p;
     }
+
     function caption(w){
         const format=new Intl.DateTimeFormat(undefined,{dateStyle:'short',timeStyle:'short',timeZone:'America/Indianapolis'});
         $('window-label').textContent=format.format(new Date(w.from*1000))+' — '+format.format(new Date(w.to*1000))+' (Indianapolis)';
         if($('forward'))$('forward').disabled=w.to>=Math.floor(Date.now()/1000)-5;
     }
+
     function schedule(){
         clearTimeout(timer);
         if(state.refresh>0&&!['custom','yesterday'].includes(state.range))timer=setTimeout(()=>{
             if(!document.hidden&&!loading)render();else schedule();
         },state.refresh*1000);
     }
+
     async function render(){
         clearTimeout(timer);clearTimeout(debounce);
         const invalid=S.validate(state);if(invalid){error(invalid);status('Adjust controls to generate view.');return;}
         error();if(controller)controller.abort();controller=new AbortController();const signal=controller.signal,token=++generation;
         loading=true;save();synchronizeCards();currentWindow=S.windowFor(state);caption(currentWindow);
-        const containerWidth=$('graphs')?Math.max(640,Math.min(2200,Math.round($('graphs').clientWidth-2))):1080;
-        const jobs=state.groups.map(id=>({id,url:graphUrl(id,currentWindow,containerWidth)}));
-        status('Generating '+jobs.length+' graph'+(jobs.length===1?'':'s')+'…');
-        for(const {id}of jobs){const card=cards.get(id);card.article.setAttribute('aria-busy','true');card.message.textContent='Generating…';card.message.classList.remove('error');}
+        const containerWidth=$('graphs')?Math.max(500,Math.min(2400,Math.round($('graphs').clientWidth-2))):1080;
+        const targets=visibleGroups();
+        const jobs=targets.map(id=>({id,url:graphUrl(id,currentWindow,containerWidth)}));
+        status('Rendering '+jobs.length+' graph'+(jobs.length===1?'':'s')+'…');
+        for(const {id}of jobs){
+            const card=cards.get(id);
+            if(card){
+                card.article.setAttribute('aria-busy','true');
+                card.message.textContent='Rendering…';
+                card.message.classList.remove('error');
+            }
+        }
         let successes=0,failures=0;
         async function worker(){
             while(jobs.length&&!signal.aborted){
                 const {id,url}=jobs.shift(),card=cards.get(id);
+                if(!card)continue;
                 try{
                     const response=await fetch(url,{cache:'no-store',signal:AbortSignal.any([signal,AbortSignal.timeout(22000)])});
                     if(!response.ok){let message='Graph request failed ('+response.status+').';try{message=(await response.json()).error||message;}catch{}throw new Error(message);}
@@ -204,15 +277,19 @@
         loading=false;status(failures?successes+' updated, '+failures+' failed':successes+' graph'+(successes===1?'':'s')+' ready · '+(state.refresh>0&&!['custom','yesterday'].includes(state.range)?'refresh: '+state.refresh+'s':'manual'));
         schedule();
     }
+
     function apply(){state=read();paint();render();}
     function navigate(factor,zoom){
         const invalid=S.validate(state);if(invalid){error(invalid);return;}
         const w=S.move(currentWindow||S.windowFor(state),factor,zoom);Object.assign(state,w,{range:'custom',refresh:0,resolution:'auto'});paint();render();
     }
+
     try{
         const response=await fetch('/api/rrd-graphs',{cache:'no-store'});if(!response.ok)throw new Error('Graph options unavailable.');catalog=await response.json();
         let saved='';try{saved=localStorage.getItem(key)||'';}catch{}
-        state=S.read(new URLSearchParams(location.search||saved));setupChoices();paint();
+        state=S.read(new URLSearchParams(location.search||saved));
+        setupChoices();paint();
+
         form.addEventListener('submit',event=>{event.preventDefault();apply();});
         form.addEventListener('change',event=>{
             if(event.target.id==='range'&&event.target.value==='custom'){
@@ -221,6 +298,8 @@
             if(['from','to','min','max'].includes(event.target.id))return;
             clearTimeout(debounce);debounce=setTimeout(apply,250);
         });
+
+        // Preset button clicks
         document.addEventListener('click',event=>{
             const btn=event.target.closest('.preset-btn');
             if(!btn)return;
@@ -232,15 +311,51 @@
             }
             apply();
         });
-        const optBtn=$('options-toggle'),optDrawer=$('options-drawer');
-        if(optBtn&&optDrawer){
-            optBtn.addEventListener('click',()=>{
-                const willShow=optDrawer.hidden;
-                optDrawer.hidden=!willShow;
-                optBtn.classList.toggle('active',willShow);
-                optBtn.setAttribute('aria-expanded',String(willShow));
-            });
-        }
+
+        // Master stream selection & toggle
+        document.addEventListener('click',event=>{
+            const card=event.target.closest('.stream-card');
+            if(!card)return;
+            const group=card.dataset.group;
+            if(event.target.matches('input[type=checkbox]')){
+                // User clicked the checkbox to enable/disable group
+                if(event.target.checked){
+                    if(!state.groups.includes(group))state.groups.push(group);
+                }else{
+                    state.groups=state.groups.filter(g=>g!==group);
+                }
+                const inspectorCheck=$('group-'+group);
+                if(inspectorCheck)inspectorCheck.checked=event.target.checked;
+                apply();
+                return;
+            }
+            // User clicked card body -> focus this metric in detail pane
+            state.active=group;
+            if(!state.groups.includes(group))state.groups.push(group);
+            paint();
+            render();
+        });
+
+        // View Mode toggles
+        if($('view-mode-focus'))$('view-mode-focus').addEventListener('click',()=>{
+            state.active=state.active==='all'?(state.groups[0]||'watt'):state.active;
+            paint();render();
+        });
+        if($('view-mode-all'))$('view-mode-all').addEventListener('click',()=>{
+            state.active='all';
+            paint();render();
+        });
+
+        // Sidebar toggles for mobile / tablet
+        if($('toggle-sidebar-left'))$('toggle-sidebar-left').addEventListener('click',()=>{
+            $('pane-master').classList.toggle('open');
+            $('pane-inspector').classList.remove('open');
+        });
+        if($('toggle-sidebar-right'))$('toggle-sidebar-right').addEventListener('click',()=>{
+            $('pane-inspector').classList.toggle('open');
+            $('pane-master').classList.remove('open');
+        });
+
         $('reload').addEventListener('click',apply);
         $('back').addEventListener('click',()=>navigate(-.5,false));$('forward').addEventListener('click',()=>navigate(.5,false));
         $('zoom-in').addEventListener('click',()=>navigate(.5,true));$('zoom-out').addEventListener('click',()=>navigate(2,true));

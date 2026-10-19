@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>RRD History · Home Energy Monitor</title>
-    <meta name="description" content="Minimal, high-efficiency RRD diagnostics and history for home energy telemetry.">
+    <meta name="description" content="3-pane master/detail telemetry diagnostics for Home Energy Monitor.">
     <link rel="stylesheet" href="rrd-viewer.css">
     <link rel="stylesheet" href="sensor-status.css">
     <script src="js/rrd-viewer-state.js" defer></script>
@@ -13,197 +13,313 @@
     <script src="js/mqtt.min.js" defer></script>
     <script src="js/rrd-live.js" defer></script>
 </head>
-<body>
-<main id="main" class="viewer">
+<body class="app-shell">
+<main id="main" class="dashboard-layout">
+    <!-- Top Global App Bar -->
     <header class="app-header">
         <div class="brand">
-            <span class="pulse-dot" title="Live telemetry"></span>
+            <span class="pulse-dot" title="MQTT Live"></span>
             <span class="brand-name">HEM</span>
             <span class="brand-sep">/</span>
             <span class="page-title">RRD History</span>
         </div>
-        <nav class="nav-links" aria-label="Dashboards">
-            <a href="index.html" class="active" aria-current="page">RRD</a>
-            <a href="chart.html">Charts</a>
-            <a href="hvac.html">HVAC</a>
-        </nav>
+        <div class="header-center">
+            <div class="view-mode-toggle" role="tablist" aria-label="Layout view mode">
+                <button type="button" id="view-mode-focus" class="view-btn active" role="tab" aria-selected="true">Focus Detail</button>
+                <button type="button" id="view-mode-all" class="view-btn" role="tab" aria-selected="false">All Stacked</button>
+            </div>
+        </div>
+        <div class="header-right">
+            <nav class="nav-links" aria-label="Dashboards">
+                <a href="index.html" class="active" aria-current="page">RRD</a>
+                <a href="chart.html">Charts</a>
+                <a href="hvac.html">HVAC</a>
+            </nav>
+            <button id="toggle-sidebar-left" type="button" class="btn-toggle-pane" title="Toggle metrics pane" aria-label="Toggle metrics pane">☰</button>
+            <button id="toggle-sidebar-right" type="button" class="btn-toggle-pane" title="Toggle inspector pane" aria-label="Toggle inspector pane">⚙</button>
+        </div>
     </header>
 
-    <div class="live-strip" aria-label="Live Telemetry">
-        <div class="readings" id="live-readings">
-            <span id="power">Power: …</span>
-            <span id="kWh">Energy: …</span>
-            <span id="t">Controller: …</span>
-            <span id="out"></span>
-            <span id="upper"></span>
-            <span id="lower"></span>
-            <span id="achigh"></span>
-            <span id="aclow"></span>
-            <span id="gal"></span>
-            <span id="gpm"></span>
-            <span id="rh"></span>
-            <span id="dew"></span>
-            <span id="state"></span>
-            <span id="cool"></span>
-            <span id="heat"></span>
-        </div>
+    <!-- 3-Pane Container -->
+    <div class="three-pane-container">
+
+        <!-- PANE 1: MASTER (Metrics List & Real-time Live Feeds) -->
+        <aside id="pane-master" class="pane pane-master" aria-label="Metrics Master List">
+            <div class="pane-header">
+                <span class="pane-title">Metrics &amp; Live Streams</span>
+                <span class="pane-badge" id="active-count-badge">4 active</span>
+            </div>
+
+            <div class="master-stream-list" id="master-stream-list">
+                <!-- Power & Energy -->
+                <div class="stream-card active" data-group="watt" id="stream-card-watt">
+                    <div class="stream-header">
+                        <label class="check stream-check" title="Toggle chart in view">
+                            <input type="checkbox" id="group-watt" data-stream="watt" checked>
+                        </label>
+                        <div class="stream-info">
+                            <span class="stream-name">Power &amp; Energy</span>
+                            <span class="stream-tag">Watts</span>
+                        </div>
+                    </div>
+                    <div class="stream-live">
+                        <span id="power" class="telemetry-pill">Power: …</span>
+                        <span id="kWh" class="telemetry-pill">Energy: …</span>
+                    </div>
+                </div>
+
+                <!-- Climate & Humidity -->
+                <div class="stream-card" data-group="temp" id="stream-card-temp">
+                    <div class="stream-header">
+                        <label class="check stream-check" title="Toggle chart in view">
+                            <input type="checkbox" id="group-temp" data-stream="temp" checked>
+                        </label>
+                        <div class="stream-info">
+                            <span class="stream-name">Climate &amp; Comfort</span>
+                            <span class="stream-tag">°F / %</span>
+                        </div>
+                    </div>
+                    <div class="stream-live">
+                        <span id="t" class="telemetry-pill">Controller: …</span>
+                        <span id="out" class="telemetry-pill"></span>
+                        <span id="rh" class="telemetry-pill"></span>
+                        <span id="dew" class="telemetry-pill"></span>
+                    </div>
+                </div>
+
+                <!-- Water Heater Tanks -->
+                <div class="stream-card" data-group="wh" id="stream-card-wh">
+                    <div class="stream-header">
+                        <label class="check stream-check" title="Toggle chart in view">
+                            <input type="checkbox" id="group-wh" data-stream="wh" checked>
+                        </label>
+                        <div class="stream-info">
+                            <span class="stream-name">Water Heater</span>
+                            <span class="stream-tag">°F</span>
+                        </div>
+                    </div>
+                    <div class="stream-live">
+                        <span id="upper" class="telemetry-pill"></span>
+                        <span id="lower" class="telemetry-pill"></span>
+                    </div>
+                </div>
+
+                <!-- Water Flow -->
+                <div class="stream-card" data-group="gpm" id="stream-card-gpm">
+                    <div class="stream-header">
+                        <label class="check stream-check" title="Toggle chart in view">
+                            <input type="checkbox" id="group-gpm" data-stream="gpm" checked>
+                        </label>
+                        <div class="stream-info">
+                            <span class="stream-name">Water Flow</span>
+                            <span class="stream-tag">GPM</span>
+                        </div>
+                    </div>
+                    <div class="stream-live">
+                        <span id="gpm" class="telemetry-pill"></span>
+                        <span id="gal" class="telemetry-pill"></span>
+                    </div>
+                </div>
+
+                <!-- HVAC & AC Diagnostics -->
+                <div class="stream-card" data-group="ac" id="stream-card-ac">
+                    <div class="stream-header">
+                        <label class="check stream-check" title="Toggle chart in view">
+                            <input type="checkbox" id="group-ac" data-stream="ac">
+                        </label>
+                        <div class="stream-info">
+                            <span class="stream-name">AC &amp; Heat Pump</span>
+                            <span class="stream-tag">Diagnostics</span>
+                        </div>
+                    </div>
+                    <div class="stream-live">
+                        <span id="state" class="telemetry-pill"></span>
+                        <span id="cool" class="telemetry-pill"></span>
+                        <span id="heat" class="telemetry-pill"></span>
+                        <span id="achigh" class="telemetry-pill"></span>
+                        <span id="aclow" class="telemetry-pill"></span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- PANE 2: DETAIL STAGE (Hero Chart Canvas + Timeline Toolbar) -->
+        <section id="pane-stage" class="pane pane-stage" aria-label="RRD Graphs Stage">
+            <!-- Stage Toolbar: Presets & Time Travel -->
+            <div class="stage-toolbar">
+                <div class="toolbar-row">
+                    <div class="preset-pill-group" role="toolbar" aria-label="Time presets">
+                        <button type="button" class="preset-btn" data-range="1h">1h</button>
+                        <button type="button" class="preset-btn" data-range="6h">6h</button>
+                        <button type="button" class="preset-btn" data-range="12h">12h</button>
+                        <button type="button" class="preset-btn" data-range="24h">24h</button>
+                        <button type="button" class="preset-btn" data-range="48h">48h</button>
+                        <button type="button" class="preset-btn" data-range="7d">7d</button>
+                        <button type="button" class="preset-btn" data-range="30d">30d</button>
+                        <button type="button" class="preset-btn" data-range="90d">90d</button>
+                        <button type="button" class="preset-btn" data-range="365d">1y</button>
+                        <button type="button" class="preset-btn" data-range="3y">3y</button>
+                        <button type="button" class="preset-btn" data-range="today">Today</button>
+                        <button type="button" class="preset-btn" data-range="custom">Custom</button>
+                    </div>
+
+                    <div class="nav-group">
+                        <button id="back" type="button" class="btn-nav" title="Earlier window">‹ Earlier</button>
+                        <button id="zoom-out" type="button" class="btn-nav" title="Zoom out">− Zoom</button>
+                        <button id="zoom-in" type="button" class="btn-nav" title="Zoom in">+ Zoom</button>
+                        <button id="forward" type="button" class="btn-nav" title="Later window">Later ›</button>
+                        <button id="now" type="button" class="btn-nav btn-now" title="Jump to latest data">Now</button>
+                        <button id="reload" type="button" class="btn-nav" title="Re-render graphs">⟳</button>
+                    </div>
+                </div>
+
+                <div class="stage-meta">
+                    <span id="window-label" class="window-label">Calculating time window…</span>
+                    <div class="solar-legend" title="Solar markers">
+                        <span><span class="solar-dot sunrise">●</span> Sunrise</span>
+                        <span><span class="solar-dot noon">●</span> Solar noon</span>
+                        <span><span class="solar-dot sunset">●</span> Sunset</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alerts & Feedback -->
+            <p id="status" role="status" aria-live="polite" class="status-bar"></p>
+            <p id="form-error" class="error-banner" role="alert" hidden></p>
+            <div id="share-fallback" class="share-box" hidden>
+                <label>View link: <input id="share-url" type="text" readonly></label>
+            </div>
+
+            <!-- Graphs Container (Detail View / Stack) -->
+            <div id="graphs" class="graphs-container" aria-label="Rendered RRD Graphs"></div>
+
+            <noscript>
+                <p class="error-banner">JavaScript is required for interactive RRD controls. <a href="/graph/temp?start=24h&theme=dark">Open temperature graph</a>.</p>
+            </noscript>
+        </section>
+
+        <!-- PANE 3: INSPECTOR (Fine Controls, Traces, Precision, Axis Bounds) -->
+        <aside id="pane-inspector" class="pane pane-inspector" aria-label="Inspector &amp; Controls">
+            <div class="pane-header">
+                <span class="pane-title" id="inspector-heading">Metric Inspector</span>
+                <button type="button" id="reset" class="text-button" title="Reset default options">Reset</button>
+            </div>
+
+            <form id="viewer-controls" class="inspector-form">
+                <!-- Hidden Range Select (kept synchronized with preset buttons) -->
+                <select id="range" name="range" hidden>
+                    <option value="1h">Last hour</option>
+                    <option value="6h">Last 6 hours</option>
+                    <option value="12h">Last 12 hours</option>
+                    <option value="24h" selected>Last 24 hours</option>
+                    <option value="48h">Last 48 hours</option>
+                    <option value="96h">Last 4 days</option>
+                    <option value="7d">Last week</option>
+                    <option value="30d">Last 30 days</option>
+                    <option value="90d">Last 90 days</option>
+                    <option value="365d">Last year</option>
+                    <option value="3y">Last 3 years</option>
+                    <option value="today">Today</option>
+                    <option value="yesterday">Yesterday</option>
+                    <option value="custom">Custom dates</option>
+                </select>
+
+                <!-- Active Metric Traces (Contextual to selected metric) -->
+                <div class="inspector-section">
+                    <span class="section-label" id="inspector-metric-label">Traces &amp; Series</span>
+                    <fieldset class="graph-picker">
+                        <legend class="sr-only">Metric series</legend>
+                        <div id="graph-options" class="graph-options"></div>
+                    </fieldset>
+                </div>
+
+                <!-- Custom Range (shown if custom is selected) -->
+                <div id="custom-dates" class="inspector-section custom-dates" hidden>
+                    <span class="section-label">Custom Date Interval</span>
+                    <label>From <input type="datetime-local" id="from"></label>
+                    <label>To <input type="datetime-local" id="to"></label>
+                    <p class="hint">Indianapolis timezone aligned.</p>
+                </div>
+
+                <!-- Precision & Timing -->
+                <div class="inspector-section">
+                    <span class="section-label">Precision &amp; Timing</span>
+                    <div class="input-stack">
+                        <label>Resolution Tier
+                            <select id="resolution">
+                                <option value="auto">Auto (tier default)</option>
+                                <option value="30">30s (up to 48h)</option>
+                                <option value="60">1m (up to 30d)</option>
+                                <option value="300">5m (up to 90d)</option>
+                                <option value="900">15m (up to 1y)</option>
+                                <option value="3600">1h (up to 3y)</option>
+                            </select>
+                        </label>
+                        <label>Auto-refresh
+                            <select id="refresh">
+                                <option value="0">Manual only</option>
+                                <option value="30">Every 30s</option>
+                                <option value="60" selected>Every minute</option>
+                                <option value="300">Every 5 min</option>
+                            </select>
+                        </label>
+                        <label>Aggregation (CF)
+                            <select id="cf">
+                                <option value="AVERAGE">Average</option>
+                                <option value="MIN">Minimum</option>
+                                <option value="MAX">Maximum</option>
+                            </select>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Dimensions & Axis Bounds -->
+                <div class="inspector-section">
+                    <span class="section-label">Dimensions &amp; Scaling</span>
+                    <div class="input-stack">
+                        <label>Plot Height
+                            <select id="height">
+                                <option value="240">Compact (240px)</option>
+                                <option value="320" selected>Standard (320px)</option>
+                                <option value="480">Large (480px)</option>
+                                <option value="640">Extra Large (640px)</option>
+                            </select>
+                        </label>
+                        <label>Width Mode
+                            <select id="width">
+                                <option value="auto">Auto (fit stage)</option>
+                                <option value="1080">1,080 px</option>
+                                <option value="1600">1,600 px</option>
+                                <option value="2200">2,200 px</option>
+                            </select>
+                        </label>
+                        <div class="input-pair">
+                            <label>Y-Min <input id="min" type="number" step="any" placeholder="Auto"></label>
+                            <label>Y-Max <input id="max" type="number" step="any" placeholder="Auto"></label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Overlays & Features -->
+                <div class="inspector-section">
+                    <span class="section-label">Overlays &amp; Shading</span>
+                    <div class="check-stack">
+                        <label class="check"><input id="legend" type="checkbox" checked> Show Legend</label>
+                        <label class="check"><input id="stats" type="checkbox" checked> Statistics (min/max/avg/last)</label>
+                        <label class="check"><input id="bands" type="checkbox"> Min–Max Shading Bands</label>
+                        <label class="check"><input id="hvac" type="checkbox" checked> HVAC Heating/Cooling Overlay</label>
+                        <label class="check"><input id="log" type="checkbox" checked> Logarithmic Power Axis</label>
+                    </div>
+                </div>
+
+                <!-- Inspector Actions -->
+                <div class="inspector-actions">
+                    <button type="submit" id="generate" class="primary btn-block">Apply Changes</button>
+                    <button type="button" id="share" class="btn-block">Copy Shareable Link</button>
+                </div>
+            </form>
+        </aside>
     </div>
-
-    <section class="control-bar" aria-label="Viewer Controls">
-        <div class="bar-section quick-ranges" role="toolbar" aria-label="Time presets">
-            <button type="button" class="preset-btn" data-range="1h">1h</button>
-            <button type="button" class="preset-btn" data-range="6h">6h</button>
-            <button type="button" class="preset-btn" data-range="12h">12h</button>
-            <button type="button" class="preset-btn" data-range="24h">24h</button>
-            <button type="button" class="preset-btn" data-range="48h">48h</button>
-            <button type="button" class="preset-btn" data-range="7d">7d</button>
-            <button type="button" class="preset-btn" data-range="30d">30d</button>
-            <button type="button" class="preset-btn" data-range="90d">90d</button>
-            <button type="button" class="preset-btn" data-range="365d">1y</button>
-            <button type="button" class="preset-btn" data-range="3y">3y</button>
-            <button type="button" class="preset-btn" data-range="today">Today</button>
-            <button type="button" class="preset-btn" data-range="custom">Custom</button>
-        </div>
-
-        <div class="bar-section nav-controls">
-            <button id="back" type="button" class="btn-icon" title="Earlier window">‹ Earlier</button>
-            <button id="zoom-out" type="button" class="btn-icon" title="Zoom out">− Zoom</button>
-            <button id="zoom-in" type="button" class="btn-icon" title="Zoom in">+ Zoom</button>
-            <button id="forward" type="button" class="btn-icon" title="Later window">Later ›</button>
-            <button id="now" type="button" title="Jump to latest data">Now</button>
-        </div>
-
-        <div class="bar-section action-controls">
-            <button id="options-toggle" type="button" class="btn-options" aria-expanded="false" aria-controls="options-drawer" title="Toggle graph options & custom range">⚙ Options</button>
-            <button id="reload" type="button" title="Refresh graphs">⟳</button>
-            <button id="share" type="button" title="Copy shareable link">Share</button>
-        </div>
-    </section>
-
-    <form id="viewer-controls">
-        <div id="options-drawer" class="options-drawer" hidden>
-            <div id="custom-dates" class="custom-dates" hidden>
-                <label>From
-                    <input type="datetime-local" id="from">
-                </label>
-                <label>To
-                    <input type="datetime-local" id="to">
-                </label>
-                <p class="custom-dates-hint">Local datetime input. Graph coordinates align to Indianapolis time.</p>
-            </div>
-
-            <div class="drawer-grid">
-                <label>Time range
-                    <select id="range" name="range">
-                        <option value="1h">Last hour</option>
-                        <option value="6h">Last 6 hours</option>
-                        <option value="12h">Last 12 hours</option>
-                        <option value="24h" selected>Last 24 hours</option>
-                        <option value="48h">Last 48 hours</option>
-                        <option value="96h">Last 4 days</option>
-                        <option value="7d">Last week</option>
-                        <option value="30d">Last 30 days</option>
-                        <option value="90d">Last 90 days</option>
-                        <option value="365d">Last year</option>
-                        <option value="3y">Last 3 years</option>
-                        <option value="today">Today</option>
-                        <option value="yesterday">Yesterday</option>
-                        <option value="custom">Custom dates</option>
-                    </select>
-                </label>
-                <label>Auto-refresh
-                    <select id="refresh">
-                        <option value="0">Manual only</option>
-                        <option value="30">Every 30s</option>
-                        <option value="60" selected>Every minute</option>
-                        <option value="300">Every 5 min</option>
-                    </select>
-                </label>
-                <label>Resolution tier
-                    <select id="resolution">
-                        <option value="auto">Auto (tier default)</option>
-                        <option value="30">30s (up to 48h)</option>
-                        <option value="60">1m (up to 30d)</option>
-                        <option value="300">5m (up to 90d)</option>
-                        <option value="900">15m (up to 1y)</option>
-                        <option value="3600">1h (up to 3y)</option>
-                    </select>
-                </label>
-                <label>Aggregation (CF)
-                    <select id="cf">
-                        <option value="AVERAGE">Average</option>
-                        <option value="MIN">Minimum</option>
-                        <option value="MAX">Maximum</option>
-                    </select>
-                </label>
-                <label>Height
-                    <select id="height">
-                        <option value="240">Compact (240px)</option>
-                        <option value="320" selected>Standard (320px)</option>
-                        <option value="480">Large (480px)</option>
-                        <option value="640">XL (640px)</option>
-                    </select>
-                </label>
-                <label>Image width
-                    <select id="width">
-                        <option value="auto">Auto (page width)</option>
-                        <option value="1080">1,080 px</option>
-                        <option value="1600">1,600 px</option>
-                        <option value="2200">2,200 px</option>
-                    </select>
-                </label>
-                <label>Y-min
-                    <input id="min" type="number" step="any" placeholder="Auto">
-                </label>
-                <label>Y-max
-                    <input id="max" type="number" step="any" placeholder="Auto">
-                </label>
-            </div>
-
-            <div class="drawer-grid">
-                <label class="check"><input id="legend" type="checkbox" checked> Legend</label>
-                <label class="check"><input id="stats" type="checkbox" checked> Statistics (min/max/avg/last)</label>
-                <label class="check"><input id="bands" type="checkbox"> Min–max bands</label>
-                <label class="check"><input id="hvac" type="checkbox" checked> HVAC overlay</label>
-                <label class="check"><input id="log" type="checkbox" checked> Log power axis</label>
-            </div>
-
-            <fieldset class="graph-picker">
-                <legend>Metrics &amp; Line Selection</legend>
-                <div id="graph-options" class="graph-options"></div>
-            </fieldset>
-
-            <div class="drawer-footer">
-                <button type="button" id="reset" class="text-button">Reset defaults</button>
-                <button type="submit" id="generate" class="primary">Apply options</button>
-            </div>
-        </div>
-    </form>
-
-    <div class="meta-bar">
-        <span id="window-label">Loading time window…</span>
-        <div class="solar-key">
-            <span><span class="solar-dot sunrise">●</span> Sunrise</span>
-            <span><span class="solar-dot noon">●</span> Noon</span>
-            <span><span class="solar-dot sunset">●</span> Sunset</span>
-        </div>
-    </div>
-
-    <p id="status" role="status" aria-live="polite"></p>
-    <p id="form-error" class="error" role="alert" hidden></p>
-    <div id="share-fallback" hidden>
-        <label>Share URL: <input id="share-url" type="text" readonly></label>
-    </div>
-
-    <section id="graphs" aria-label="RRD Graphs"></section>
-
-    <noscript>
-        <p class="error">JavaScript is required for interactive RRD controls. <a href="/graph/temp?start=24h&theme=dark">Open temperature graph</a>.</p>
-    </noscript>
-
-    <footer>
-        <p>HEM RRD diagnostics · Indianapolis (America/Indianapolis) solar alignment · Gaps represent sensor loss; water silence denotes zero flow.</p>
-    </footer>
 </main>
 </body>
 </html>
